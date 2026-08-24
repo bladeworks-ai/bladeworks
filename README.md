@@ -35,3 +35,8 @@ python -m pip install -r requirements.txt
 python -m pip install -e . --no-deps
 python -m pytest -q
 ```
+
+## License
+
+Bladeworks is licensed under the GNU Affero General Public License v3.0 only.
+See [LICENSE](LICENSE).

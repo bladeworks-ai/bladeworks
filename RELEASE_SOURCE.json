@@ -3,8 +3,9 @@
     ".bladeworks-release-target": "463cba39363d1a426e9760d4bce6f7f1250b10f306b4e014c44669a296833395",
     ".github/workflows/publish.yml": "1a773090344570b06fa6aa3e19c93c04abaf738bb614c508998d544193845ce6",
     ".gitignore": "c08a91fae6c6ae90b1070b455144acdecedaf95fc97d9f7f6659c286eb05ac70",
-    "README.md": "7633abca155a74a6e04729601c6947cba2bd432c179d2a8db33479a6c672dec5",
-    "pyproject.toml": "bd4fdb9cce4734bddc684b8f2ff8b24870d62c49ecc8394a30d5e3d4690bad0b",
+    "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+    "README.md": "42fcd009c5ee80c69ca53b9e1ad28386a1b8222ea7e9b2e02b19c620bfb01dfa",
+    "pyproject.toml": "7b09ef7fd3136ad651494cba01b74b86fb03479baf2dc24ff6e4ed13dbb2ef8e",
     "requirements.txt": "3b50fe7ec5519e9a1a37f77b2d4acd8e730b2170527c36bc549092739d63b8cc",
     "src/bladeworks/__init__.py": "6af7f6906e2e292ba735bb14336729d03363217b297067d19f3d9062d0935851",
     "src/bladeworks/__main__.py": "0f7d54f3fbb1f79a85eb8110f11793db99da6f3c61ee979de5abe9a1b5f3fdb3",
@@ -236,5 +237,5 @@
     "tests/test_tensor_transition_golden.py": "ead0d94d2d454c7bc54daed2ba75eed524bbb9df2066ffb3c03ab2233863823e"
   },
   "generator": "scripts/release_bladeworks.py",
-  "spellshot_commit": "a40cc07d74e0f7572875ff75bf88dbfc8cb2f724"
+  "spellshot_commit": "b18d2318dafafbabc3a3c0d99d8132d7d92d96e9"
 }
