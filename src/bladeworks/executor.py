@@ -239,6 +239,19 @@ def execute_render(
                 rasters=rasters,
                 output_resolution=output_resolution,
             )
+            for layer in plan.layers:
+                if layer.source_has_alpha and layer.alpha_handling is None:
+                    report.add(
+                        outcome="info",
+                        portable_status="exact_portable",
+                        fcpxml_path=layer.path,
+                        construct="alpha source interpretation",
+                        disposition=(
+                            "source contains alpha and carries no Final Cut alphaHandling "
+                            "override; interpreted as straight alpha"
+                        ),
+                    )
+            report.write(report_path)
             stats = render_document(
                 document,
                 output_path=output_path,
@@ -280,11 +293,23 @@ def execute_render(
         requested_backend="tensor",
         selected_backend="tensor",
     )
+    alpha_sources = [
+        {
+            "path": layer.path,
+            "handling": layer.alpha_handling or "straight",
+            "authored_override": layer.alpha_handling is not None,
+        }
+        for layer in plan.layers
+        if layer.source_has_alpha
+    ]
+    render_backend: dict[str, Any] = {"requested": "tensor", "selected": "tensor"}
+    if alpha_sources:
+        render_backend["alpha_sources"] = alpha_sources
     manifest = {
         "schema_version": 1,
         "engine": "bladeworks",
         "status": "succeeded",
-        "render_backend": {"requested": "tensor", "selected": "tensor"},
+        "render_backend": render_backend,
         "output": {"path": str(output_path)},
         "stats": dataclass_json(stats),
     }

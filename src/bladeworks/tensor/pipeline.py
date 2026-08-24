@@ -272,7 +272,12 @@ class _LayerWorker:
         if isinstance(payload, SourceFrame):
             held.append(payload.planes)
             planes = payload.planes.to(self.device, non_blocking=True)
-            tensor = planes_to_rgb(planes, payload.layout, payload.color)
+            tensor = planes_to_rgb(
+                planes,
+                payload.layout,
+                payload.color,
+                payload.alpha_handling,
+            )
         elif isinstance(payload, HDRFrame):
             held.append(payload.rgb)
             rgb = payload.rgb.to(self.device, non_blocking=True)

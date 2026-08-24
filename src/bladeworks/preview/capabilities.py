@@ -437,7 +437,6 @@ def bladeworks_capabilities() -> dict[str, Any]:
             {"id": "motionTitleRigs", "category": "title", "reason": "Opaque Motion title rigs reject."},
             {"id": "nonCustomSolidGenerators", "category": "generator", "reason": "Only Custom Solid generators render."},
             {"id": "surroundAudio", "category": "audio", "reason": "5.1 output rejects before delivery planning."},
-            {"id": "alphaSourceMedia", "category": "media", "reason": "Alpha-carrying decoded source formats reject."},
             {"id": "hdrDelivery", "category": "export", "reason": "HDR input is tone-mapped to SDR; HDR output is not offered."},
             {"id": "oracleMezzanine", "category": "export", "reason": "The tensor encoder has no ProRes 4:2:2 10-bit exit; the legacy CPU-only oracle profile is not a Studio capability."},
             {"id": "crossChannelBlendModes", "category": "blend", "reason": "Hue, Saturation, Color and Luminosity blend modes reject."},

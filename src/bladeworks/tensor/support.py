@@ -77,9 +77,10 @@ SUPPORT: Final[Mapping[str, tuple[Status, str]]] = {
     "non-square pixel aspect": ("rejected", "post-MVP spatial intrinsics"),
     "spatial intrinsics (360 / stereo / stabilization / rolling shutter)": ("rejected", "X10"),
     "source pixel format": ("supported", ""),
-    # Colour-in policy (X10): swscale-exact decode for 8/10-bit 4:2:0 / 4:2:2 / 4:4:4 with
-    # bt709 / bt601 / bt2020nc x limited / full tags (decode.resolve_source_color),
-    # plus the frozen Rec.2020 HLG/PQ to Rec.709 SDR color-conform LUTs.
+    # Colour-in policy (X10): swscale-exact decode for planar 8/10/12-bit YUV/YUVA
+    # 4:2:0 / 4:2:2 / 4:4:4 with bt709 / bt601 / bt2020nc x limited / full tags
+    # (decode.resolve_source_color), plus the frozen Rec.2020 HLG/PQ to Rec.709
+    # SDR color-conform LUTs.
     "source pixel format (unsupported)": ("rejected", "X10"),
     "source colour matrix (unsupported)": ("rejected", "X10"),
     "source colour transfer (HLG / PQ)": ("supported", "X10 HDR-to-SDR LUT"),

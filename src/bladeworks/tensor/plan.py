@@ -80,11 +80,11 @@ from ..core.geometry import (
     SourceRect,
     resolve_crop_camera_placement,
 )
-from ..core.model import CropRect
+from ..core.model import AlphaHandling, CropRect
 from ..core.model import RenderClip, RenderDocument, ResolvedEffect
 from ..core.retime import RetimeMap
 from ..core.retime_execution import resolve_owned_frame_window, resolve_video_frame_ownership
-from .decode import VideoProbe, check_source_color, probe_video
+from .decode import SourceColor, VideoProbe, check_source_color, probe_video
 from .decode_policy import DecodePolicy, DecodeRaster, resolve_decode_raster
 from .errors import TensorRenderUnsupported
 from .support import reject
@@ -564,6 +564,10 @@ class LayerSpec(PlacedItem):
     # through ``decode_policy.decoded_to_native_matrix`` -- geometry never
     # re-derives itself from the decoded size.
     decode_raster: Optional[DecodeRaster] = None
+    # ``None`` is the explicit un-authored state and resolves to straight only
+    # when the decoder actually encounters an alpha-carrying source format.
+    alpha_handling: Optional[AlphaHandling] = None
+    source_has_alpha: bool = False
 
     def source_time(self, frame: int, frame_duration: Fraction) -> Fraction:
         source_time, direction = self.clock.source_sample(self.local_time(frame, frame_duration))
@@ -928,7 +932,13 @@ def _reject_unsupported_clip(clip: RenderClip, *, source_kind: SourceKind) -> No
                 raise reject("spatial intrinsics (360 / stereo / stabilization / rolling shutter)", f"{clip.path}: {name}")
 
 
-def _reject_unsupported_source(clip: RenderClip, probe: VideoProbe, *, media_path: Path, source_kind: SourceKind) -> None:
+def _reject_unsupported_source(
+    clip: RenderClip,
+    probe: VideoProbe,
+    *,
+    media_path: Path,
+    source_kind: SourceKind,
+) -> Optional[SourceColor]:
     """Refuse a probed raster the sampler would place wrongly (rotation / non-square pixels).
 
     ``media_path`` is the file the pixels actually come from, which for a title,
@@ -946,7 +956,8 @@ def _reject_unsupported_source(clip: RenderClip, probe: VideoProbe, *, media_pat
         # Colour-in policy (X10): resolve supported Rec.2020 HLG/PQ through the
         # frozen SDR LUT and fail at plan time on malformed HDR tags, exotic
         # matrices or pixel formats instead of on the first decoded frame.
-        check_source_color(probe, subject=f"{clip.path}: {media_path}")
+        return check_source_color(probe, subject=f"{clip.path}: {media_path}")
+    return None
 
 
 # --------------------------------------------------------------------------- group scopes
@@ -1605,7 +1616,12 @@ def _lower_leaf(
     probe = probes.get(media_path)
     if probe is None:
         probe = probes[media_path] = probe_video(media_path)
-    _reject_unsupported_source(clip, probe, media_path=media_path, source_kind=source_kind)
+    source_color = _reject_unsupported_source(
+        clip,
+        probe,
+        media_path=media_path,
+        source_kind=source_kind,
+    )
 
     ownership = _resolve_ownership(clip, document, tree, canvas)
     reverse_decode_cache = (
@@ -1729,6 +1745,8 @@ def _lower_leaf(
         source_frame_duration=clip.source_frame_duration,
         source_rotation_degrees=probe.rotation_degrees,
         decoder_applied_orientation=False,
+        alpha_handling=clip.alpha_handling,
+        source_has_alpha=bool(source_color and source_color.has_alpha),
         reverse_decode_cache=reverse_decode_cache,
         lane=clip.lane,
         document_order=clip.document_order,

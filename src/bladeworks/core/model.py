@@ -23,6 +23,8 @@ from fractions import Fraction
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Literal, Mapping, Optional
 
+AlphaHandling = Literal["premultiplied", "straight", "ignore"]
+
 if TYPE_CHECKING:
     from .animation import AnimationNotice, TimelineAnimatedScalar, TimelineAnimatedVec2
     from .audio_ir import AudioRenderPlan
@@ -168,6 +170,7 @@ class AssetResource:
     projection_override: Optional[str] = None
     stereoscopic_override: Optional[str] = None
     hero_eye_override: Optional[str] = None
+    alpha_handling: Optional[AlphaHandling] = None
 
 
 @dataclass(frozen=True)
@@ -651,6 +654,10 @@ class RenderClip:
     # A non-empty tuple means video uses Bladeworks's visible placeholder and
     # audio contributes silence. The locations remain data, not guessed paths.
     missing_media_locators: tuple[str, ...] = ()
+    # Final Cut's asset-level interpretation of an embedded video alpha plane.
+    # ``None`` means the document carries no override; decoded alpha then uses
+    # the renderer's explicit straight-alpha default.
+    alpha_handling: Optional[AlphaHandling] = None
 
     @property
     def canvas_width(self) -> Optional[int]:

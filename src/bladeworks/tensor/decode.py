@@ -52,16 +52,16 @@ i.e. libswscale (FFmpeg n8.0) with the *frame's* colour tags:
   mapped through the renderer-owned Rec.2020-to-Rec.709 SDR LUT on the render
   device. Matrices other than the three above (fcc, smpte240m, ycgco,
   bt2020c, rgb, chroma-derived, ictcp), pixel formats outside
-  {yuv420p, yuvj420p, yuv422p, yuvj422p, yuv444p, yuvj444p, yuv420p10le,
-  yuv422p10le, yuv444p10le, yuv444p12le} (nv12 / p010 hwaccel formats, alpha
-  sources, gray, rgb), odd rasters of subsampled formats.
-* 4:4:4 (yuv444p, yuv444p10le / yuv444p12le -- ProRes 4444 without alpha, the
+  the reviewed planar YUV/YUVA set in ``_PIXEL_FORMATS`` (nv12 / p010 hwaccel
+  formats, gray, packed rgb/alpha), odd rasters of subsampled formats.
+* 4:4:4 (yuv444p, yuv444p10le / yuv444p12le -- including ProRes 4444 color, the
   XYZT landmark plate): swscale forces full chroma interpolation for
   non-subsampled input and
   writes RGB with its 16-bit fixed-point matrix (``yuv2rgb_write_full``);
   ``planes_to_rgb`` reproduces that integer arithmetic exactly too.
 
-Alpha stays with the raster sources; ``ClipDecoder`` returns opaque RGB.
+Planar YUVA alpha is copied independently at full range. ``ClipDecoder`` returns
+straight RGBA for alpha video and opaque RGB otherwise.
 
 Main callers:
 - ``plan.build_tensor_plan`` (``probe_video`` per media file at plan time; it
@@ -85,6 +85,7 @@ import av
 import numpy as np
 import torch
 
+from ..core.model import AlphaHandling
 from .errors import TensorRenderError
 from .hdr import HDRTransfer, hdr_to_sdr
 from .support import reject
@@ -143,17 +144,25 @@ DECODE_SCALE_INTERPOLATION = "BILINEAR"
 
 # Supported decoded pixel formats -> (bit depth, horizontal chroma shift, vertical chroma
 # shift, full range implied by the format).
-_PIXEL_FORMATS: dict[str, tuple[int, int, int, bool]] = {
-    "yuv420p": (8, 1, 1, False),
-    "yuvj420p": (8, 1, 1, True),
-    "yuv422p": (8, 1, 0, False),
-    "yuvj422p": (8, 1, 0, True),
-    "yuv420p10le": (10, 1, 1, False),
-    "yuv422p10le": (10, 1, 0, False),
-    "yuv444p": (8, 0, 0, False),
-    "yuvj444p": (8, 0, 0, True),
-    "yuv444p10le": (10, 0, 0, False),
-    "yuv444p12le": (12, 0, 0, False),  # ProRes 4444 profiles decode as 12-bit
+_PIXEL_FORMATS: dict[str, tuple[int, int, int, bool, bool]] = {
+    "yuv420p": (8, 1, 1, False, False),
+    "yuvj420p": (8, 1, 1, True, False),
+    "yuv422p": (8, 1, 0, False, False),
+    "yuvj422p": (8, 1, 0, True, False),
+    "yuv420p10le": (10, 1, 1, False, False),
+    "yuv422p10le": (10, 1, 0, False, False),
+    "yuv444p": (8, 0, 0, False, False),
+    "yuvj444p": (8, 0, 0, True, False),
+    "yuv444p10le": (10, 0, 0, False, False),
+    "yuv444p12le": (12, 0, 0, False, False),
+    "yuva420p": (8, 1, 1, False, True),
+    "yuva422p": (8, 1, 0, False, True),
+    "yuva444p": (8, 0, 0, False, True),
+    "yuva420p10le": (10, 1, 1, False, True),
+    "yuva422p10le": (10, 1, 0, False, True),
+    "yuva444p10le": (10, 0, 0, False, True),
+    "yuva422p12le": (12, 1, 0, False, True),
+    "yuva444p12le": (12, 0, 0, False, True),
 }
 
 
@@ -172,6 +181,7 @@ class SourceColor:
     chroma_shift_y: int
     matrix: str
     full_range: bool
+    has_alpha: bool = False
     hdr_transfer: Optional[HDRTransfer] = None
 
     def describe(self) -> str:
@@ -208,7 +218,7 @@ def resolve_source_color(
             "source pixel format (unsupported)",
             f"{subject}: pix_fmt={pixel_format!r} (supported: {', '.join(sorted(_PIXEL_FORMATS))})",
         )
-    bit_depth, shift_x, shift_y, format_full = layout
+    bit_depth, shift_x, shift_y, format_full, has_alpha = layout
     if matrix_tag not in _MATRIX_BY_TAG:
         raise reject(
             "source colour matrix (unsupported)",
@@ -235,6 +245,7 @@ def resolve_source_color(
         chroma_shift_y=shift_y,
         matrix=matrix,
         full_range=full_range,
+        has_alpha=has_alpha,
         hdr_transfer=hdr_transfer,
     )
 
@@ -396,12 +407,13 @@ def _check_raster_parity(width: int, height: int, color: SourceColor, *, subject
 
 @dataclass(frozen=True)
 class PlaneLayout:
-    """Geometry of one packed planar frame: Y ``[H, W]`` then U, V ``[Hc, Wc]`` back to back."""
+    """Geometry of packed Y, U, V and optional full-raster alpha planes."""
 
     height: int
     width: int
     chroma_height: int
     chroma_width: int
+    has_alpha: bool = False
 
     @property
     def luma_size(self) -> int:
@@ -413,7 +425,7 @@ class PlaneLayout:
 
     @property
     def total(self) -> int:
-        return self.luma_size + 2 * self.chroma_size
+        return self.luma_size + 2 * self.chroma_size + (self.luma_size if self.has_alpha else 0)
 
 
 @dataclass(frozen=True)
@@ -430,6 +442,7 @@ class SourceFrame:
     planes: torch.Tensor
     layout: PlaneLayout
     color: SourceColor
+    alpha_handling: AlphaHandling = "straight"
 
 
 @dataclass(frozen=True)
@@ -451,8 +464,13 @@ class HDRFrame:
     transfer: HDRTransfer
 
 
-def pack_planes(frame: av.VideoFrame, color: SourceColor) -> SourceFrame:
-    """Copy a decoded planar frame's Y, U, V planes (stride removed) into one flat CPU tensor."""
+def pack_planes(
+    frame: av.VideoFrame,
+    color: SourceColor,
+    *,
+    alpha_handling: AlphaHandling = "straight",
+) -> SourceFrame:
+    """Copy decoded Y, U, V and optional alpha planes into one stride-free tensor."""
 
     height, width = frame.height, frame.width
     layout = PlaneLayout(
@@ -460,6 +478,7 @@ def pack_planes(frame: av.VideoFrame, color: SourceColor) -> SourceFrame:
         width=width,
         chroma_height=-(-height >> color.chroma_shift_y) if color.chroma_shift_y else height,
         chroma_width=-(-width >> color.chroma_shift_x) if color.chroma_shift_x else width,
+        has_alpha=color.has_alpha,
     )
     dtype = np.uint8 if color.bit_depth == 8 else np.uint16
     flat = np.empty(layout.total, dtype=dtype)
@@ -472,22 +491,45 @@ def pack_planes(frame: av.VideoFrame, color: SourceColor) -> SourceFrame:
 
     flat[:layout.luma_size] = plane(0, height, width).reshape(-1)
     flat[layout.luma_size:layout.luma_size + layout.chroma_size] = plane(1, layout.chroma_height, layout.chroma_width).reshape(-1)
-    flat[layout.luma_size + layout.chroma_size:] = plane(2, layout.chroma_height, layout.chroma_width).reshape(-1)
+    color_end = layout.luma_size + 2 * layout.chroma_size
+    flat[layout.luma_size + layout.chroma_size:color_end] = plane(
+        2, layout.chroma_height, layout.chroma_width
+    ).reshape(-1)
+    if layout.has_alpha:
+        flat[color_end:] = plane(3, height, width).reshape(-1)
     if color.bit_depth != 8:
         flat = flat.view(np.int16)  # 0..1023 codes fit; torch has no arithmetic uint16
-    return SourceFrame(planes=torch.from_numpy(flat), layout=layout, color=color)
+    return SourceFrame(
+        planes=torch.from_numpy(flat),
+        layout=layout,
+        color=color,
+        alpha_handling=alpha_handling,
+    )
 
 
 def _split_planes(planes: torch.Tensor, layout: PlaneLayout) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     flat = planes.reshape(-1)
     y = flat[:layout.luma_size].view(layout.height, layout.width)
     u = flat[layout.luma_size:layout.luma_size + layout.chroma_size].view(layout.chroma_height, layout.chroma_width)
-    v = flat[layout.luma_size + layout.chroma_size:].view(layout.chroma_height, layout.chroma_width)
+    v_start = layout.luma_size + layout.chroma_size
+    v = flat[v_start:v_start + layout.chroma_size].view(layout.chroma_height, layout.chroma_width)
     return y, u, v
 
 
-def planes_to_rgb(planes: torch.Tensor, layout: PlaneLayout, color: SourceColor) -> torch.Tensor:
-    """Packed planes (any device) -> RGB ``[3, H, W]`` float32 0..1 code space, the reference's ``format=rgba``.
+def _alpha_plane(planes: torch.Tensor, layout: PlaneLayout) -> torch.Tensor:
+    if not layout.has_alpha:
+        raise TensorRenderError("alpha plane requested from an opaque source layout")
+    start = layout.luma_size + 2 * layout.chroma_size
+    return planes.reshape(-1)[start:start + layout.luma_size].view(layout.height, layout.width)
+
+
+def planes_to_rgb(
+    planes: torch.Tensor,
+    layout: PlaneLayout,
+    color: SourceColor,
+    alpha_handling: AlphaHandling = "straight",
+) -> torch.Tensor:
+    """Packed planes -> code-space RGB or straight RGBA ``[C,H,W]`` float32.
 
     Dispatches on the source class (see the module docstring for why the two
     kernels differ): 8-bit sources take the exact-float path, 10-bit sources
@@ -506,7 +548,16 @@ def planes_to_rgb(planes: torch.Tensor, layout: PlaneLayout, color: SourceColor)
         rgb = _rgb_from_planes_8bit(planes, layout, color)
     else:
         rgb = _rgb_from_planes_swscale_tables(planes, layout, color)
-    return hdr_to_sdr(rgb, color.hdr_transfer) if color.hdr_transfer is not None else rgb
+    rgb = hdr_to_sdr(rgb, color.hdr_transfer) if color.hdr_transfer is not None else rgb
+    if not color.has_alpha:
+        return rgb
+    alpha = _alpha_plane(planes, layout).float().div_(float((1 << color.bit_depth) - 1))
+    alpha = alpha.clamp_(0.0, 1.0).unsqueeze(0)
+    if alpha_handling == "ignore":
+        return rgb
+    if alpha_handling == "premultiplied":
+        rgb = torch.where(alpha > 0.0, rgb / alpha.clamp_min(1e-12), torch.zeros_like(rgb)).clamp_(0.0, 1.0)
+    return torch.cat((rgb, alpha), dim=0)
 
 
 class _DeviceConstants:
@@ -729,7 +780,7 @@ def swscale_vertical_filter(src_len: int, dst_len: int, *, src_pos: int = 128, d
 
 
 def _rgb_from_planes_swscale_tables(planes: torch.Tensor, layout: PlaneLayout, color: SourceColor) -> torch.Tensor:
-    """10-bit planar -> RGB exactly as swscale's generic path (see module docstring)."""
+    """10/12-bit subsampled planar -> RGB through swscale's generic path."""
 
     if color.chroma_shift_x != 1:
         raise TensorRenderError(f"swscale table path expects 4:2:0 / 4:2:2 chroma; got {color.pixel_format}")
@@ -749,18 +800,27 @@ def _rgb_from_planes_swscale_tables(planes: torch.Tensor, layout: PlaneLayout, c
         )
 
     y_table, d_r, d_gu, d_gv, d_b, yoffs = _CONSTANTS.get(("sws_tables", color.matrix, color.full_range), planes, build_tables)
-    y10, u10, v10 = _split_planes(planes, layout)
-    y8 = torch.div(y10.to(torch.int32) + 2, 4, rounding_mode="floor")
+    y_high, u_high, v_high = _split_planes(planes, layout)
+    reduce_shift = color.bit_depth - 8
+    reduce_round = 1 << (reduce_shift - 1)
+    reduce_divisor = 1 << reduce_shift
+    y8 = torch.div(
+        y_high.to(torch.int32) + reduce_round,
+        reduce_divisor,
+        rounding_mode="floor",
+    )
     if color.chroma_shift_y:
         index, coeff = _CONSTANTS.get(("sws_vfilter", layout.chroma_height, layout.height), planes, build_filter)
-        # 15-bit chroma (x << 5), int16 taps summing to 4096, then (acc + 2^18) >> 19.
-        u15 = u10.to(torch.int32) * 32
-        v15 = v10.to(torch.int32) * 32
+        # Normalize source codes to 15-bit, apply int16 taps summing to 4096,
+        # then reduce the filtered result to the reference's 8-bit RGB link.
+        source_to_15 = 1 << (15 - color.bit_depth)
+        u15 = u_high.to(torch.int32) * source_to_15
+        v15 = v_high.to(torch.int32) * source_to_15
         u8 = torch.div((u15[index] * coeff).sum(dim=1) + (1 << 18), 1 << 19, rounding_mode="floor")
         v8 = torch.div((v15[index] * coeff).sum(dim=1) + (1 << 18), 1 << 19, rounding_mode="floor")
     else:
-        u8 = torch.div(u10.to(torch.int32) + 2, 4, rounding_mode="floor")
-        v8 = torch.div(v10.to(torch.int32) + 2, 4, rounding_mode="floor")
+        u8 = torch.div(u_high.to(torch.int32) + reduce_round, reduce_divisor, rounding_mode="floor")
+        v8 = torch.div(v_high.to(torch.int32) + reduce_round, reduce_divisor, rounding_mode="floor")
     u8 = u8.clamp_(0, 255)
     v8 = v8.clamp_(0, 255)
     # Chroma is shared per horizontal luma pair (swscale's chrDstW = ceil(W/2) for RGB output).
@@ -845,7 +905,7 @@ class FrameSource(Protocol):
     ``frame_at(instant)`` returns the source raster owning ``instant`` (a
     layer-local source time) as a float32 code-space tensor ``[C, H, W]`` in
     0..1 on the render device: ``C == 3`` for opaque video, ``C == 4`` for
-    straight-alpha rasters (titles, generators, still images with alpha).
+    straight-alpha video or rasters (titles, generators, still images with alpha).
     Implementations: ``ClipDecoder`` (video, X1-X3), ``RasterSource`` (stills /
     titles / captions / Custom Solid generators, X5).
     """
@@ -880,6 +940,7 @@ def open_source(layer: "LayerSpec", *, device: torch.device, threads: int = 4) -
         reverse_cache_bytes=128 * 1024 * 1024 if layer.reverse_decode_cache else 0,
         reverse_cache_frames=128,
         decode_size=None if raster.is_native else raster.encoded_size,
+        alpha_handling=layer.alpha_handling,
     )
 
 
@@ -998,6 +1059,7 @@ class ClipDecoder:
         reverse_cache_bytes: int = 0,
         reverse_cache_frames: int = 128,
         decode_size: Optional[tuple[int, int]] = None,
+        alpha_handling: Optional[AlphaHandling] = None,
     ) -> None:
         self.media_path = media_path
         self.device = device
@@ -1006,6 +1068,7 @@ class ClipDecoder:
             if width < 2 or height < 2:
                 raise TensorRenderError(f"{media_path}: decode size {width}x{height} is too small")
         self._decode_size = decode_size
+        self._alpha_handling: AlphaHandling = alpha_handling or "straight"
         self._container = av.open(str(media_path))
         streams = [s for s in self._container.streams if s.type == "video"]
         if not streams:
@@ -1278,6 +1341,8 @@ class ClipDecoder:
 
         frame = self.owning_frame(source_time)
         color = self._resolve_color(frame)
+        if color.has_alpha and color.hdr_transfer is not None:
+            raise TensorRenderError(f"{self.media_path}: HDR video with alpha is not supported")
         if color.hdr_transfer is not None:
             if self._decode_size is not None:
                 # ``decode_policy`` keeps HDR sources native (rule "hdr"); a
@@ -1294,7 +1359,11 @@ class ClipDecoder:
             ).to_ndarray()
             rgb = torch.from_numpy(np.ascontiguousarray(array)).permute(2, 0, 1)
             return HDRFrame(rgb=rgb, transfer=color.hdr_transfer)
-        return pack_planes(self._scaled(frame, color), color)
+        return pack_planes(
+            self._scaled(frame, color),
+            color,
+            alpha_handling=self._alpha_handling,
+        )
 
     def frame_at(self, source_time: Fraction) -> torch.Tensor:
         """Return the owning frame for ``source_time`` as RGB float [3,H,W] on the device."""
@@ -1303,7 +1372,7 @@ class ClipDecoder:
         if isinstance(packed, HDRFrame):
             return hdr_to_sdr(packed.rgb.to(self.device), packed.transfer)
         planes = packed.planes.to(self.device)
-        return planes_to_rgb(planes, packed.layout, packed.color)
+        return planes_to_rgb(planes, packed.layout, packed.color, packed.alpha_handling)
 
     def close(self) -> None:
         self._container.close()

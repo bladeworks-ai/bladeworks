@@ -1026,6 +1026,7 @@ class _Compiler:
         render_source: Optional[RenderableAVSource] = None
         video_omission: Optional[RenderVideoDisposition] = None
         missing_media_locators: tuple[str, ...] = ()
+        alpha_handling = None
 
         if node.kind in {"asset-clip", "video", "audio"}:
             if not node.ref:
@@ -1108,6 +1109,7 @@ class _Compiler:
             else:
                 asset_id = asset.id
                 asset_uid = asset.uid
+                alpha_handling = asset.alpha_handling
                 media_path, used_binding = resolve_asset(asset, self.bindings, self.source.media_base_dir)
                 has_video = asset.has_video and node.kind != "audio" and node.src_enable != "audio"
                 has_audio = asset.has_audio and node.kind != "video" and node.src_enable != "video"
@@ -1441,6 +1443,7 @@ class _Compiler:
             semantic_effects=resolved_effects.semantic,
             video_disposition=video_disposition,
             missing_media_locators=missing_media_locators,
+            alpha_handling=alpha_handling,
         )
 
     def _report_text_findings(

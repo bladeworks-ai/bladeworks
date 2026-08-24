@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bladeworks"
-version = "0.1.0"
+version = "0.1.1"
 description = "Render portable Final Cut Pro XML projects to video."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -49,3 +49,14 @@ include = ["bladeworks*"]
 
 [tool.setuptools.package-data]
 bladeworks = ["**/*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = [
+    "**/__pycache__/*",
+    "**/.pytest_cache/*",
+    "**/*.pyc",
+    "**/*.pyo",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

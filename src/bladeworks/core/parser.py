@@ -30,6 +30,7 @@ from typing import Iterable, NoReturn, Optional
 from .errors import FCPXMLParseError
 from .model import (
     SCHEMA_VERSION,
+    AlphaHandling,
     AssetResource,
     CropAdjustment,
     CropRect,
@@ -56,6 +57,45 @@ from .model import (
     pair,
     parse_time,
 )
+
+_ALPHA_HANDLING_KEY = "com.apple.proapps.studio.alphaHandling"
+_ALPHA_HANDLING_VALUES: dict[int, AlphaHandling] = {
+    0: "premultiplied",
+    1: "straight",
+    2: "ignore",
+}
+
+
+def _asset_alpha_handling(element: ET.Element) -> Optional[AlphaHandling]:
+    """Parse Final Cut's asset-level alpha interpretation, rejecting ambiguity.
+
+    Main callers:
+    - ``_parse_resources`` while constructing an ``AssetResource``.
+
+    Why this exists:
+    Alpha association cannot be inferred reliably from a decoded YUVA plane.
+    Final Cut stores the user's authoritative choice as metadata, so it must
+    become typed input rather than remain buried in ``raw_xml``.
+    """
+
+    values: list[AlphaHandling] = []
+    for metadata in element:
+        if _tag(metadata) != "metadata":
+            continue
+        for item in metadata:
+            if _tag(item) == "md" and item.get("key") == _ALPHA_HANDLING_KEY:
+                raw = item.get("value")
+                match = None if raw is None else re.fullmatch(r"\s*([012])(?:\s+\([^)]*\))?\s*", raw)
+                if match is None:
+                    raise FCPXMLParseError(
+                        f"asset {element.get('id')!r} has malformed {_ALPHA_HANDLING_KEY} value {raw!r}"
+                    )
+                values.append(_ALPHA_HANDLING_VALUES[int(match.group(1))])
+    if len(set(values)) > 1:
+        raise FCPXMLParseError(
+            f"asset {element.get('id')!r} has conflicting {_ALPHA_HANDLING_KEY} values {values}"
+        )
+    return values[0] if values else None
 
 
 _STORY_ELEMENTS = {
@@ -504,6 +544,7 @@ def _parse_resources(
                 projection_override=element.get("projectionOverride"),
                 stereoscopic_override=element.get("stereoscopicOverride"),
                 hero_eye_override=element.get("heroEyeOverride"),
+                alpha_handling=_asset_alpha_handling(element),
             )
         elif kind == "effect":
             if not resource_id:
