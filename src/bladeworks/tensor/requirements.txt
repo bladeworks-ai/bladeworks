@@ -1,0 +1,28 @@
+# Dependencies for the PyTorch FCPXML tensor renderer.
+#
+# These versions are pinned because this renderer is calibrated at pixel level.
+# Update them only with the tensor golden suite and codec/device checks rerun.
+# Validated locally with Python 3.12.3 on macOS arm64 with MPS.
+
+# Tensor renderer runtime.
+torch==2.11.0
+av==16.0.1
+numpy==2.2.6
+tqdm==4.67.1
+
+# FCPXML raster/title inputs used by the renderer and its goldens.
+Pillow==12.2.0
+fonttools==4.59.2
+
+# Tensor renderer tests.
+pytest==8.4.2
+pytest-timeout==2.4.0
+
+# System prerequisites, not pip packages:
+# - Python 3.12+
+# - FFmpeg and ffprobe 6+ on PATH
+# - libx264 and AAC encoders in the FFmpeg build
+#
+# Do not add opencv-python to this environment. Its bundled FFmpeg libraries
+# can conflict with the FFmpeg libraries bundled by PyAV. Use the repository's
+# broader backend environment separately for OpenCV-dependent A/B tooling.

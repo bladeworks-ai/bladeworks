@@ -1,0 +1,13 @@
+<?xml version="1.0"?><!DOCTYPE fcpxml><fcpxml version="1.14">
+<resources>
+  <format id="fmt" frameDuration="1/30s" width="160" height="90" colorSpace="1-1-1 (Rec. 709)"/>
+  <asset id="a" start="0s" duration="2s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="fmt"><media-rep kind="original-media" src="Media/a.mp4"/></asset>
+  <asset id="b" start="0s" duration="2s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="fmt"><media-rep kind="original-media" src="./Media/b.mp4"/></asset>
+</resources>
+<library><event name="t"><project name="spine_and_lane">
+<sequence format="fmt" duration="2s"><spine>
+  <asset-clip ref="a" offset="0s" start="0s" duration="1s" audioRole="dialogue"/>
+  <asset-clip ref="b" offset="1s" start="1/2s" duration="1s" audioRole="dialogue">
+    <asset-clip ref="a" lane="1" offset="1/2s" start="1s" duration="1/2s" audioRole="music"/>
+  </asset-clip>
+</spine></sequence></project></event></library></fcpxml>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.14">
+  <resources>
+    <format id="fmt" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)"/>
+    <effect id="fx-angle" name="Angle Effect" uid=".../Effects.localized/Blur.localized/Gaussian.localized/Gaussian"/>
+    <effect id="fx-source" name="Source Effect" uid=".../Effects.localized/Stylize.localized/Pixelate.localized/Pixelate"/>
+    <asset id="cam-a" name="Camera A" start="0s" duration="240s" hasVideo="1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="2" audioRate="48000" format="fmt">
+      <media-rep kind="original-media" src="file:///tmp/multicam-camera-a.mov"/>
+    </asset>
+    <asset id="cam-b" name="Camera B" start="0s" duration="240s" hasVideo="1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="2" audioRate="48000" format="fmt">
+      <media-rep kind="original-media" src="file:///tmp/multicam-camera-b.mov"/>
+    </asset>
+    <asset id="overlay" name="Connected Overlay" start="0s" duration="10s" hasVideo="1" hasAudio="0" videoSources="1" format="fmt">
+      <media-rep kind="original-media" src="file:///tmp/multicam-overlay.mov"/>
+    </asset>
+    <media id="compound-b" name="Camera B Compound">
+      <sequence format="fmt" tcStart="20s" duration="4s" audioLayout="stereo" audioRate="48k">
+        <spine>
+          <clip name="Angle Group" offset="20s" start="20s" duration="3s">
+            <asset-clip ref="cam-b" name="Grouped Camera B" offset="20s" start="200s" duration="3s" srcEnable="video"/>
+            <asset-clip ref="overlay" name="Group Connected Overlay" lane="1" offset="21s" start="0s" duration="1s" srcEnable="video"/>
+          </clip>
+          <gap name="Compound Gap" offset="23s" start="0s" duration="1s"/>
+        </spine>
+      </sequence>
+    </media>
+    <media id="multicam" name="Interview Multicam">
+      <multicam format="fmt" tcStart="0s" duration="6s" tcFormat="NDF">
+        <mc-angle name="Camera A" angleID="angle-a">
+          <asset-clip ref="cam-a" name="Audio Camera A" offset="0s" start="100s" duration="6s" audioRole="dialogue.dialogue-1">
+            <adjust-transform position="3 4" scale="1.05 1.05" rotation="1"/>
+            <adjust-volume amount="-1dB"/>
+            <audio-channel-source srcCh="2" outCh="R" role="dialogue.dialogue-1"/>
+            <filter-video ref="fx-angle" name="Angle Item Effect"/>
+          </asset-clip>
+        </mc-angle>
+        <mc-angle name="Camera B" angleID="angle-b">
+          <ref-clip ref="compound-b" name="Compound Camera B" offset="0s" start="20s" duration="4s" srcEnable="video">
+            <adjust-transform position="5 -2" scale="1.1 0.9" rotation="2"/>
+            <filter-video ref="fx-angle" name="Angle Item Effect"/>
+          </ref-clip>
+          <gap name="Angle Gap" offset="4s" start="0s" duration="2s"/>
+        </mc-angle>
+      </multicam>
+    </media>
+  </resources>
+  <library>
+    <event name="Multicam Execution">
+      <project name="Independent A/V Multicam">
+        <sequence format="fmt" tcStart="0s" duration="6s" audioLayout="stereo" audioRate="48k">
+          <spine>
+            <mc-clip ref="multicam" name="Selected Multicam" offset="1s" start="1s" duration="4s" audioStart="0s" audioDuration="4s">
+              <adjust-volume amount="-2dB"/>
+              <mc-source angleID="angle-a" srcEnable="audio">
+                <audio-role-source role="dialogue.dialogue-1">
+                  <adjust-volume amount="6dB"/>
+                </audio-role-source>
+              </mc-source>
+              <mc-source angleID="angle-b" srcEnable="video">
+                <adjust-crop mode="crop">
+                  <crop-rect left="2" top="3" right="4" bottom="5"/>
+                </adjust-crop>
+                <adjust-conform type="fill"/>
+                <adjust-transform position="10 -6" scale="0.8 1.2" rotation="7" anchor="1 2"/>
+                <adjust-blend amount="0.75" mode="multiply"/>
+                <filter-video ref="fx-source" name="Selected Source Effect"/>
+              </mc-source>
+              <asset-clip ref="overlay" name="Timeline Connected Overlay" lane="1" offset="2s" start="1s" duration="1s" srcEnable="video"/>
+            </mc-clip>
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>

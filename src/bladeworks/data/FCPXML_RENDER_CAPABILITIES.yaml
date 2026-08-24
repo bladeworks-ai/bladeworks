@@ -1,0 +1,1797 @@
+{
+  "schema_version": 1,
+  "capabilities": [
+    {
+      "id": "story-multicam-selection",
+      "kind": "story_element",
+      "uid": null,
+      "aliases": ["mc-clip"],
+      "authoring_status": "authorable",
+      "portable_status": "exact_portable",
+      "handler": "multicam_selected_angles",
+      "parameters": {},
+      "calibration_fixtures": ["portable-multicam-independent-av"],
+      "omission": "omit uncovered or unsupported angle intervals and report each one"
+    },
+    {
+      "id": "mask-shape-standard",
+      "kind": "mask",
+      "uid": null,
+      "aliases": ["Shape Mask", "Shape Mask 1", "Shape Mask 2"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "shape_mask",
+      "parameters": {
+        "160": {"name": "Radius", "components": 2, "minimum": 0, "maximum": 32768, "coordinate_space": "project_pixels"},
+        "159": {"name": "Curvature", "minimum": 0, "maximum": 1},
+        "102": {"name": "Feather", "minimum": 0, "maximum": 8192, "coordinate_space": "project_pixels"},
+        "201": {"name": "Position", "components": 2, "minimum": -32768, "maximum": 32768, "coordinate_space": "project_pixels"},
+        "202": {"name": "Rotation", "minimum": -3600, "maximum": 3600},
+        "103": {"name": "Opacity", "minimum": 0, "maximum": 1},
+        "104": {"name": "Falloff", "minimum": 0.1, "maximum": 8}
+      },
+      "calibration_fixtures": ["portable-mask-shape"],
+      "omission": "reject tracked, invalid, or unknown shape parameters and leave the underlying effect unapplied"
+    },
+    {
+      "id": "mask-isolation-bounded",
+      "kind": "mask",
+      "uid": null,
+      "aliases": ["Color Mask", "Range Mask", "HSL Mask"],
+      "authoring_status": "preserve_only",
+      "portable_status": "calibrated_portable",
+      "handler": "color_range_mask",
+      "parameters": {
+        "bladeworks/color": {"name": "Color", "components": 3, "minimum": 0, "maximum": 1},
+        "tolerance": {"name": "Tolerance", "minimum": 0.00001, "maximum": 1},
+        "softness": {"name": "Softness", "minimum": 0, "maximum": 1},
+        "luma_min": {"name": "Luma Minimum", "minimum": 0, "maximum": 1},
+        "luma_max": {"name": "Luma Maximum", "minimum": 0, "maximum": 1},
+        "opacity": {"name": "Opacity", "minimum": 0, "maximum": 1}
+      },
+      "calibration_fixtures": ["portable-mask-color-range"],
+      "omission": "opaque Apple color-isolation archives are preserved but rejected until a reviewed decoder exists"
+    },
+    {
+      "id": "effect-draw-mask-opaque",
+      "kind": "video_filter",
+      "uid": "FFSplineMask",
+      "aliases": ["Draw Mask"],
+      "authoring_status": "preserve_only",
+      "portable_status": "calibrated_portable",
+      "handler": null,
+      "parameters": {"117": {"name": "Animation"}},
+      "calibration_fixtures": [],
+      "omission": "standalone Draw Mask geometry is not present in reviewed exports; leave the clip unchanged and report it"
+    },
+    {
+      "id": "effect-corner-mask-opaque",
+      "kind": "video_filter",
+      "uid": "FFSimpleMaskEffect",
+      "aliases": ["Corner Mask"],
+      "authoring_status": "preserve_only",
+      "portable_status": "unsupported",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "standalone Corner Mask geometry is not exposed by the reviewed export; leave the clip unchanged and report it"
+    },
+    {
+      "id": "effect-auto-mask-excluded",
+      "kind": "video_filter",
+      "uid": "FFSemanticMaskEffectID",
+      "aliases": ["Auto Mask"],
+      "authoring_status": "preserve_only",
+      "portable_status": "apple_only",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "Auto Mask is explicitly outside the bounded portable mask prototype"
+    },
+    {
+      "id": "effect-magnetic-mask-excluded",
+      "kind": "video_filter",
+      "uid": "FFAddAlphaEffectID",
+      "aliases": ["Magnetic Mask"],
+      "authoring_status": "preserve_only",
+      "portable_status": "apple_only",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "Magnetic Mask is explicitly outside the bounded portable mask prototype"
+    },
+    {
+      "id": "title-basic",
+      "kind": "title",
+      "uid": ".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti",
+      "uid_glob": ".../Titles.localized/*Basic Title.localized/Basic Title.moti",
+      "aliases": ["Basic Title"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "basic_title",
+      "parameters": {
+        "9999/999166631/999166633/1/100/101": {"name": "Position", "components": 2, "coordinate_space": "1920x1080_template"},
+        "Scale": {"name": "Scale", "components": 2, "minimum": 0.01, "maximum": 10},
+        "9999/999166631/999166633/2/351": {"name": "Flatten", "allowed": ["1"]},
+        "9999/999166631/999166633/2/354/999169573/401": {"name": "Alignment", "allowed": ["1 (Center)"]},
+        "9999/999166631/999166633/5/999166635/3": {"name": "Size", "minimum": 1, "maximum": 1000},
+        "9999/999166631/999166633/5/999166635/81/79": {"name": "Tracking", "minimum": -100, "maximum": 100},
+        "tracking": {"name": "motionTextTracking", "minimum": -100, "maximum": 100}
+      },
+      "calibration_fixtures": ["portable-e2e-basic-title", "portable-e2e-native-caption"],
+      "omission": "omit title and report when its font cannot be resolved"
+    },
+    {
+      "id": "effect-color-adjustments",
+      "kind": "video_filter",
+      "uid": "FxPlug:7E2022A5-202B-4EEB-A311-AC2B585D01B0",
+      "aliases": ["Color Adjustments"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "color_adjustments",
+      "parameters": {
+        "1": {"name": "Black Point", "minimum": -5.93974, "maximum": 0, "ffmpeg_scale": 0.03},
+        "2": {"name": "Brightness", "minimum": -200, "maximum": 200, "ffmpeg_scale": 0.005},
+        "3": {"name": "Exposure", "minimum": -100, "maximum": 100, "ffmpeg_scale": 0.004},
+        "4": {"name": "Shadows", "minimum": -100, "maximum": 100, "ffmpeg_scale": 0.01},
+        "7": {"name": "Highlights", "minimum": -150, "maximum": 100, "ffmpeg_scale": 0.006667},
+        "10": {"name": "Highlights Warmth", "minimum": -55, "maximum": 55, "ffmpeg_scale": 0.009091},
+        "11": {"name": "Highlights Tint", "minimum": -45, "maximum": 100, "ffmpeg_scale": 0.01},
+        "12": {"name": "Midtones Warmth", "minimum": -55, "maximum": 55, "ffmpeg_scale": 0.009091},
+        "13": {"name": "Midtones Tint", "minimum": -45, "maximum": 100, "ffmpeg_scale": 0.01},
+        "14": {"name": "Shadows Warmth", "minimum": -55, "maximum": 55, "ffmpeg_scale": 0.009091},
+        "15": {"name": "Shadows Tint", "minimum": -45, "maximum": 100, "ffmpeg_scale": 0.01},
+        "16": {"name": "Saturation", "minimum": -150, "maximum": 200, "ffmpeg_scale": 0.006667},
+        "17": {"name": "Contrast", "minimum": -150, "maximum": 200, "ffmpeg_scale": 0.006667},
+        "19": {"name": "Control Range", "allowed": ["0 (SDR)"]}
+      },
+      "calibration_fixtures": ["portable-e2e-color-adjustments"],
+      "omission": "omit unsupported parameters and report the effect approximation"
+    },
+    {
+      "id": "effect-color-board",
+      "kind": "video_filter",
+      "uid": "FFColorCorrectionHDREffect",
+      "aliases": ["Color Board", "Color Correction"],
+      "authoring_status": "preserve_only",
+      "portable_status": "unsupported",
+      "handler": "color_board",
+      "parameters": {
+        "2000": {"name": "Color Global", "components": 2, "minimum": 0, "maximum": 1, "ffmpeg_balance_scale": 0.35},
+        "2001": {"name": "Color Highlights", "components": 2, "minimum": 0, "maximum": 1},
+        "2002": {"name": "Color Midtones", "components": 2, "minimum": 0, "maximum": 1},
+        "2003": {"name": "Color Shadows", "components": 2, "minimum": 0, "maximum": 1},
+        "2004": {"name": "Saturation Global", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2, "zone_weight": 0.25},
+        "2005": {"name": "Saturation Highlights", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2},
+        "2006": {"name": "Saturation Midtones", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2},
+        "2007": {"name": "Saturation Shadows", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2},
+        "2008": {"name": "Exposure Global", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2, "curve_weight": 0.3},
+        "2009": {"name": "Exposure Highlights", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2, "curve_weight": 0.22},
+        "2010": {"name": "Exposure Midtones", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2, "curve_weight": 0.22},
+        "2011": {"name": "Exposure Shadows", "minimum": 0, "maximum": 1, "neutral": 0.5, "ffmpeg_scale": 2, "curve_weight": 0.22}
+      },
+      "calibration_fixtures": ["portable-color-board-explicit-scalars"],
+      "omission": "omit HDR/non-Rec.709 variants; apply only explicit 2000-2011 controls and report the approximation"
+    },
+    {
+      "id": "effect-color-wheels",
+      "kind": "video_filter",
+      "uid": "FxPlug:52A68C6D-B49C-41AA-B3EA-03945D0C8EB4",
+      "aliases": ["Color Wheels"],
+      "authoring_status": "preserve_only",
+      "portable_status": "unsupported",
+      "handler": "color_wheels",
+      "parameters": {
+        "8890": {"name": "Temperature", "minimum": 2500, "maximum": 10000, "ffmpeg_scale": 0.00006},
+        "8891": {"name": "Tint", "minimum": -100, "maximum": 100, "ffmpeg_scale": 0.006},
+        "8892": {"name": "Hue", "minimum": -180, "maximum": 180}
+      },
+      "calibration_fixtures": ["portable-color-wheels-explicit-scalars"],
+      "omission": "apply only explicit temperature, tint, and hue scalars; proprietary wheel channel blobs are ignored and reported"
+    },
+    {
+      "id": "effect-color-curves",
+      "kind": "video_filter",
+      "uid": "FxPlug:920273EF-948C-4556-8EB8-8EFEF7A34111",
+      "aliases": ["Color Curves"],
+      "authoring_status": "preserve_only",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_color_curves",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "edited curves with proprietary channel blobs are rejected; only the archive-free semantic default executes",
+      "approximation": "archive-free neutral stock curve; edited Final Cut channel archives remain an explicit not-implemented-yet boundary"
+    },
+    {
+      "id": "effect-hue-saturation-curves",
+      "kind": "video_filter",
+      "uid": "FxPlug:23723AD7-62C4-4ED0-A8C6-FA5A2D7162E4",
+      "aliases": ["Hue/Saturation Curves", "Hue/Sat Curves"],
+      "authoring_status": "preserve_only",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_hue_saturation_curves",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "edited hue/saturation curves with proprietary channel blobs are rejected; only the archive-free semantic default executes",
+      "approximation": "archive-free neutral hue/saturation curve; six edited Final Cut archives remain not implemented yet"
+    },
+    {
+      "id": "effect-vibrancy-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Basics.localized/Vibrancy.localized/Vibrancy.moef",
+      "aliases": ["Vibrancy"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_vibrancy",
+      "parameters": {
+        "9999/987152514/100/987152515/2/100": {"name": "Amount", "type": "scalar", "default": 0.4976076555, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true}
+      },
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject nonnumeric or unknown controls and leave the clip unchanged",
+      "approximation": "stock vibrance with bounded low-side brightness and contrast compensation"
+    },
+    {
+      "id": "effect-directional-blur-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Blur.localized/Directional.localized/Directional.moef",
+      "aliases": ["Directional Blur", "Directional"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_directional_blur",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "reject nonnumeric or unknown controls and leave the clip unblurred",
+      "approximation": "nine bounded directional samples with clamped source coordinates"
+    },
+    {
+      "id": "effect-focus-blur-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Blur.localized/Focus.localized/Focus.moef",
+      "aliases": ["Focus Blur", "Focus"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_focus_blur",
+      "parameters": {
+        "9999/11249/100/11250/2/100": {"name": "Amount", "type": "scalar", "default": 0.3, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true},
+        "9999/11249/100/999242278/2/100": {"name": "Softness", "type": "scalar", "default": 0.57862, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true},
+        "9999/11249/100/999234268/2/100": {"name": "Emphasis", "type": "scalar", "default": 0.5, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true},
+        "9999/11249/100/1978911431/2/100": {"name": "Width", "type": "scalar", "default": 0.5, "minimum": 0, "maximum": 1, "units": "normalized frame width", "keyframes": true},
+        "9999/11249/100/1978911462/2/100": {"name": "Height", "type": "scalar", "default": 0.25, "minimum": 0, "maximum": 1, "units": "normalized frame height", "keyframes": true}
+      },
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "reject nonnumeric or unknown controls and leave the clip unblurred",
+      "approximation": "Gaussian branch blended outside a bounded elliptical focus region"
+    },
+    {
+      "id": "effect-radial-blur-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Blur.localized/Radial.localized/Radial.moef",
+      "aliases": ["Radial Blur", "Radial"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_radial_blur",
+      "parameters": {
+        "9999/986883370/100/986883376/2/100": {"name": "Amount", "type": "scalar", "default": 0.2503840246, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true}
+      },
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "reject nonnumeric or unknown controls and leave the clip unblurred",
+      "approximation": "seventeen rotated samples around the reviewed default center"
+    },
+    {
+      "id": "effect-drop-shadow-cohort",
+      "kind": "video_filter",
+      "uid": "FxPlug:9C13F991-BC99-4DC8-B150-381D7CCE183B",
+      "aliases": ["Drop Shadow"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_drop_shadow",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject every explicit control until visible shadow-response sweeps establish its semantics",
+      "approximation": "split alpha, blacken, blur, offset, and composite behind the unchanged source"
+    },
+    {
+      "id": "effect-crop-feather-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Distortion.localized/Crop & Feather.localized/Crop & Feather.moef",
+      "aliases": ["Crop & Feather"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_crop_feather",
+      "parameters": {
+        "9999/989379745/100/989379746/2/100": {"name": "Width", "type": "scalar", "default": 0.25, "minimum": 0, "maximum": 1, "units": "normalized frame width", "keyframes": true},
+        "9999/989379745/100/989379838/2/100": {"name": "Height", "type": "scalar", "default": 0.25, "minimum": 0, "maximum": 1, "units": "normalized frame height", "keyframes": true},
+        "9999/989379745/100/989379995/2/100": {"name": "Feather", "type": "scalar", "default": 0.5, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true}
+      },
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject malformed controls and leave source alpha unchanged",
+      "approximation": "rounded-superellipse alpha crop with a bounded linear feather"
+    },
+    {
+      "id": "effect-droplet-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Distortion.localized/Droplet.localized/Droplet.moef",
+      "aliases": ["Droplet"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_droplet",
+      "parameters": {
+        "9999/10012/100/10013/2/100": {"name": "Intensity", "type": "scalar", "default": 0.7618, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true}
+      },
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject malformed controls and leave the clip undistorted",
+      "approximation": "bounded Gaussian ring displacement along rays from Center"
+    },
+    {
+      "id": "effect-earthquake-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Distortion.localized/Earthquake.localized/Earthquake.moef",
+      "aliases": ["Earthquake"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_earthquake",
+      "parameters": {
+        "9999/10062/100/10063/2/100": {"name": "Amount", "type": "scalar", "default": 0.0979, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true}
+      },
+      "effect_artifact": {
+        "abi": "spell-effect-v1",
+        "id": "earthquake-cohort",
+        "version": 1,
+        "source": "earthquake.effect.glsl",
+        "license": {
+          "spdx": "LicenseRef-Bladeworks-Internal",
+          "author": "Bladeworks",
+          "provenance": "renderer-owned Vulkan lowering of the calibrated CPU Earthquake cohort"
+        }
+      },
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "reject malformed controls and leave the clip stationary",
+      "approximation": "deterministic clamped two-frequency frame jitter"
+    },
+    {
+      "id": "effect-fisheye-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Distortion.localized/Fisheye.localized/Fisheye.moef",
+      "aliases": ["Fisheye"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_fisheye",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject explicit Amount until portable lens geometry matches the strong-value Final Cut sweep",
+      "approximation": "bounded radial pinch/bulge sampling with black out-of-frame negative-lens pixels"
+    },
+    {
+      "id": "effect-vignette-mask-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Masks.localized/Vignette Mask.localized/Vignette Mask.moef",
+      "aliases": ["Vignette Mask"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_vignette_mask",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject malformed controls and leave source alpha unchanged",
+      "approximation": "elliptical alpha matte with bounded center, size, and feather ramp"
+    },
+    {
+      "id": "effect-callout-reframe",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Reframe.localized/Callout.localized/Callout.moef",
+      "aliases": ["Callout"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_callout",
+      "parameters": {},
+      "calibration_fixtures": ["callout-reframe-uid-final-cut-roundtrip"],
+      "omission": "reject unknown controls and leave the clip unchanged; a UID-null display-name resource does not select this concrete effect",
+      "approximation": "default Reframe Callout build-in: dimmed/softened field plus bordered magnified inset near the lower-right"
+    },
+    {
+      "id": "effect-camcorder-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Stylize.localized/Camcorder.localized/Camcorder.moef",
+      "aliases": ["Camcorder"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_camcorder",
+      "parameters": {
+        "9999/999213243/100/999214138/2/100": {"name": "Amount", "type": "scalar", "default": 1, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true},
+        "9999/999213243/100/999214036/2/100": {"name": "Size", "type": "scalar", "default": 0.1489361702, "minimum": 0.05, "maximum": 1, "units": "normalized HUD scale", "keyframes": true},
+        "9999/999213243/100/999213244/2/100": {"name": "Battery Level", "type": "scalar", "default": 1, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true},
+        "9999/999213243/100/999213300/2/100": {"name": "Recording", "type": "boolean", "default": "1", "allowed": ["0", "1"], "keyframes": false}
+      },
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "reject unreviewed text/battery/HDR controls and leave the clip unchanged",
+      "approximation": "reviewed fixed-state REC, battery, and camera HUD guides with subtle color treatment"
+    },
+    {
+      "id": "effect-cartoon-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Stylize.localized/Cartoon.localized/Cartoon.moef",
+      "aliases": ["Cartoon"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_cartoon",
+      "parameters": {
+        "9999/100309/100/100310/2/100": {"name": "Amount", "type": "scalar", "default": 1, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": true}
+      },
+      "calibration_fixtures": ["cohort-effects-defaults-final-cut-roundtrip"],
+      "omission": "reject malformed or animated Amount values; static values use the reviewed export key",
+      "approximation": "stock blur, channel posterization, and a bounded unsharp edge lift"
+    },
+    {
+      "id": "effect-kaleidoscope-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Tiling.localized/Kaleidoscope.localized/Kaleidoscope.moef",
+      "aliases": ["Kaleidoscope"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_kaleidoscope",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject malformed controls and leave the clip untiled",
+      "approximation": "continuous renderer-owned polar wedge reflection with bounded mix"
+    },
+    {
+      "id": "effect-perspective-tile-cohort",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Tiling.localized/Perspective Tile.localized/Perspective Tile.moef",
+      "aliases": ["Perspective Tile"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_perspective_tile",
+      "parameters": {},
+      "calibration_fixtures": ["cohort-effects-parameter-sweep"],
+      "omission": "reject explicit Amount and Mix until portable tiling geometry matches Final Cut",
+      "approximation": "bounded repeated projective-coordinate lattice with reviewed scale, phase, and cross-axis terms"
+    },
+    {
+      "id": "effect-gaussian",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Blur.localized/Gaussian.localized/Gaussian.moef",
+      "aliases": ["Gaussian"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "gaussian",
+      "parameters": {
+        "9999/986883370/100/986883376/2/100": {"name": "Amount", "minimum": 0, "maximum": 1, "ffmpeg_sigma": 46.6666666667},
+        "9999/986883370/100/986884620/2/100": {"name": "Blur Boost", "minimum": 1, "maximum": 4}
+      },
+      "calibration_fixtures": ["portable-e2e-gaussian"],
+      "omission": "leave the underlying clip unblurred"
+    },
+    {
+      "id": "effect-sharpen",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Blur.localized/Sharpen.localized/Sharpen.moef",
+      "aliases": ["Sharpen"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "sharpen",
+      "parameters": {
+        "9999/986883553/100/986883554/2/100": {"name": "Amount", "minimum": 0, "maximum": 1, "ffmpeg_scale": 2}
+      },
+      "calibration_fixtures": ["portable-e2e-sharpen"],
+      "omission": "leave the underlying clip unsharpened"
+    },
+    {
+      "id": "effect-vignette",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Stylize.localized/Vignette.localized/Vignette.moef",
+      "aliases": ["Vignette"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "vignette",
+      "parameters": {
+        "9999/987213582/3001385021/1/200/202": {"name": "Strength", "minimum": 0, "maximum": 1, "ffmpeg_angle_scale": 1.1780972450961724},
+        "9999/987213582/3001385021/3/987213589/1": {"name": "Size", "minimum": 1, "maximum": 2}
+      },
+      "calibration_fixtures": ["portable-e2e-vignette"],
+      "omission": "leave the underlying clip without a vignette"
+    },
+    {
+      "id": "effect-negative-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Basics.localized/Negative.localized/Negative.moef",
+      "aliases": ["Negative"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "negative",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "omission": "parameters are not documented; omit parameterized instances and leave the clip unchanged"
+    },
+    {
+      "id": "effect-threshold-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Basics.localized/Threshold.localized/Threshold.moef",
+      "aliases": ["Threshold"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "threshold",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "omission": "parameters are not documented; omit parameterized instances and leave the clip unchanged"
+    },
+    {
+      "id": "effect-colorize-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Color.localized/Colorize.localized/Colorize.moef",
+      "aliases": ["Colorize"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "colorize",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "omission": "parameters are not documented; omit parameterized instances and leave the clip unchanged"
+    },
+    {
+      "id": "effect-tint-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Color.localized/Tint.localized/Tint.moef",
+      "aliases": ["Tint"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "tint",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "omission": "parameters are not documented; omit parameterized instances and leave the clip unchanged"
+    },
+    {
+      "id": "effect-flipped-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Distortion.localized/Flipped.localized/Flipped.moef",
+      "aliases": ["Flipped"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "flipped",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "omission": "parameters are not documented; omit parameterized instances and leave the clip unchanged"
+    },
+    {
+      "id": "effect-mirror-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Distortion.localized/Mirror.localized/Mirror.moef",
+      "aliases": ["Mirror"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "mirror",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "omission": "parameters are not documented; omit parameterized instances and leave the clip unchanged"
+    },
+    {
+      "id": "effect-add-noise-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Stylize.localized/Add Noise.localized/Add Noise.moef",
+      "aliases": ["Add Noise"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "add_noise",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "omission": "parameters are not documented; omit parameterized instances and leave the clip unchanged"
+    },
+    {
+      "id": "effect-green-screen-keyer",
+      "kind": "video_filter",
+      "uid": "FxPlug:41122549-B8A6-470E-94DA-211294D20B62",
+      "aliases": ["Green Screen Keyer"],
+      "authoring_status": "preserve_only",
+      "portable_status": "calibrated_portable",
+      "handler": "green_screen_keyer",
+      "parameters": {
+        "bladeworks/key-color": {"name": "Key Color", "components": 3, "minimum": 0, "maximum": 1, "required": true},
+        "DefaultSoftness": {"name": "DefaultSoftness", "minimum": 0, "maximum": 20},
+        "Strength": {"name": "Strength", "minimum": 0, "maximum": 2},
+        "Spill Level": {"name": "Spill Level", "minimum": 0, "maximum": 1},
+        "Chroma Rolloff": {"name": "Chroma Rolloff", "minimum": 0, "maximum": 1},
+        "Luma Rolloff": {"name": "Luma Rolloff", "minimum": 0, "maximum": 1},
+        "GreenChroma": {"name": "GreenChroma", "minimum": -10, "maximum": 10},
+        "BlueChroma": {"name": "BlueChroma", "minimum": -10, "maximum": 10},
+        "MinGreen": {"name": "MinGreen", "minimum": -10, "maximum": 10},
+        "MaxGreen": {"name": "MaxGreen", "minimum": -10, "maximum": 10},
+        "MinBlue": {"name": "MinBlue", "minimum": -10, "maximum": 10},
+        "MaxBlue": {"name": "MaxBlue", "minimum": -10, "maximum": 10},
+        "Mix": {"name": "Mix", "minimum": 0, "maximum": 1}
+      },
+      "calibration_fixtures": ["portable-green-screen-keyer"],
+      "omission": "invalid or unsupported effectData leaves the underlying clip opaque and is reported"
+    },
+    {
+      "id": "effect-motion-pixellate-default",
+      "kind": "video_filter",
+      "uid": ".../Effects.localized/Stylize.localized/Pixellate.localized/Pixellate.moef",
+      "aliases": ["Pixellate"],
+      "authoring_status": "preserve_only",
+      "portable_status": "unsupported",
+      "handler": "pixellate_default",
+      "parameters": {},
+      "calibration_fixtures": ["portable-basic-effects-defaults"],
+      "approximation": "default-only upstream FFmpeg pixelize with registry-owned 16x16 average blocks; a genuine Final Cut default fixture confirms the same pixel-block operation, but block size and real-footage changed regions are not calibrated",
+      "omission": "parameterized instances are omitted; the no-parameter default is an experimental stock-FFmpeg approximation"
+    },
+    {
+      "id": "transition-motion-gaussian-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Blurs.localized/Gaussian.localized/Gaussian.motr",
+      "aliases": ["Gaussian"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_gaussian_default"}, "calibration_fixtures": ["long-cohort-real-gaussian"],
+      "approximation": "isotropic Gaussian-prefiltered handoff with reviewed source ownership and exact clean endpoints",
+      "omission": "explicit source controls are rejected; the registered default remains executable"
+    },
+    {
+      "id": "transition-motion-radial-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Blurs.localized/Radial.localized/Radial.motr",
+      "aliases": ["Radial"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_radial_default"}, "calibration_fixtures": ["long-cohort-real-radial"],
+      "approximation": "reviewed nine-sample continuous rotational blur with correct center, ownership, timing, and exact endpoints",
+      "omission": "explicit source controls are rejected; the registered default remains executable"
+    },
+    {
+      "id": "transition-fx-center-cohort",
+      "kind": "transition",
+      "uid": "FxPlug:539C8A29-BBED-4670-B774-338109A7DB68",
+      "aliases": ["Center"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "3": {
+          "name": "Angle", "type": "scalar", "default": 0,
+          "allowed": [0], "transport": "ignored", "semantic_type": "serialized_default",
+          "keyframes": false
+        },
+        "7": {
+          "name": "Direction", "type": "scalar", "default": 2,
+          "allowed": [0, 1, 2], "semantic_type": "enum",
+          "choices": [{"label": "Open", "value": 0}, {"label": "Close", "value": 1}, {"label": "Automatic", "value": 2}],
+          "semantic_aliases": {"2": 0},
+          "keyframes": false
+        },
+        "16/1": {
+          "name": "Border", "type": "scalar", "default": 15,
+          "allowed": [15], "transport": "ignored", "semantic_type": "serialized_default",
+          "keyframes": false
+        },
+        "16/15": {
+          "name": "Edge Type", "type": "scalar", "default": 1,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Solid Color", "value": 0}, {"label": "Feather", "value": 1}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_center_default"}, "calibration_fixtures": ["long-cohort-real-center", "flat-parameters-center-enums"],
+      "approximation": "soft full-height strip expands from center with reviewed ownership and exact clean endpoints",
+      "omission": "explicit Open and Close Direction values and both Edge Type values are supported; Automatic is a reported bounded alias to Open because adaptive direction selection is not implemented; exact materialized Angle=0 and Border=15 defaults are reported no-ops, while every other value remains rejected"
+    },
+    {
+      "id": "transition-fx-clock-cohort",
+      "kind": "transition",
+      "uid": "FxPlug:B2C3F87B-2A21-4E13-8173-46ED4FEBC57A",
+      "aliases": ["Clock"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "3": {
+          "name": "Angle", "type": "scalar", "default": 0,
+          "allowed": [0], "transport": "ignored", "semantic_type": "serialized_default",
+          "keyframes": false
+        },
+        "6": {
+          "name": "Direction", "type": "scalar", "default": 0,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Clockwise", "value": 0}, {"label": "Counterclockwise", "value": 1}],
+          "keyframes": false
+        },
+        "16/1": {
+          "name": "Border", "type": "scalar", "default": 15,
+          "allowed": [15], "transport": "ignored", "semantic_type": "serialized_default",
+          "keyframes": false
+        },
+        "16/15": {
+          "name": "Edge Type", "type": "scalar", "default": 1,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Solid Color", "value": 0}, {"label": "Feather", "value": 1}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_clock_default"}, "calibration_fixtures": ["long-cohort-real-clock", "flat-parameters-clock-enums"],
+      "approximation": "reviewed lower-ray radial clock sweep with correct ownership and exact clean endpoints",
+      "omission": "Direction and Edge Type are supported; exact materialized Angle=0 and Border=15 defaults are reported no-ops, while every non-default remains rejected"
+    },
+    {
+      "id": "transition-fx-page-curl-cohort",
+      "kind": "transition",
+      "uid": "FxPlug:21B9D89C-4162-43FF-BA07-B019989E4940",
+      "aliases": ["Page Curl"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "1": {
+          "name": "Preset", "type": "scalar", "default": 0,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Right", "value": 0}, {"label": "Left", "value": 1}],
+          "keyframes": false
+        },
+        "9": {
+          "name": "Direction", "type": "scalar", "default": 2,
+          "allowed": [0, 1, 2], "semantic_type": "enum",
+          "choices": [{"label": "Open", "value": 0}, {"label": "Close", "value": 1}, {"label": "Automatic", "value": 2}],
+          "semantic_aliases": {"2": 0},
+          "keyframes": false
+        },
+        "2": {
+          "name": "Angle", "type": "scalar", "default": -18,
+          "allowed": [-18, 198], "transport": "ignored", "semantic_type": "serialized_default",
+          "allowed_contexts": [
+            {"when": {"1": 0}, "allowed": [-18]},
+            {"when": {"1": 1}, "allowed": [198]}
+          ],
+          "keyframes": false
+        },
+        "3": {
+          "name": "Rotation", "type": "scalar", "default": -24,
+          "allowed": [-24, 24], "transport": "ignored", "semantic_type": "serialized_default",
+          "allowed_contexts": [
+            {"when": {"1": 0}, "allowed": [-24]},
+            {"when": {"1": 1}, "allowed": [24]}
+          ],
+          "keyframes": false
+        },
+        "4": {
+          "name": "Radius", "type": "scalar", "default": 20,
+          "allowed": [20], "transport": "ignored", "semantic_type": "serialized_default",
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_page_curl_default"}, "calibration_fixtures": ["long-cohort-real-page-curl", "flat-parameters-page-curl-enums"],
+      "approximation": "reviewed diagonal page-front matte with curved fold, highlight, shadow, correct ownership, and exact endpoints",
+      "omission": "Preset and explicit Open/Close Direction values are supported; Automatic is a reported bounded alias to Open because adaptive direction selection is not implemented; exact FCP-owned Angle/Rotation/Radius materialized defaults are reported no-ops in their proved Preset context, while every other value remains rejected"
+    },
+    {
+      "id": "transition-fx-spin-cohort",
+      "kind": "transition",
+      "uid": "FxPlug:196B9DB2-28FD-420F-9BA1-3F0E9EEBBAAA",
+      "aliases": ["Spin"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "1": {
+          "name": "Direction", "type": "scalar", "default": 0,
+          "allowed": [0, 1, 2], "semantic_type": "enum",
+          "choices": [{"label": "Automatic", "value": 0}, {"label": "In", "value": 1}, {"label": "Out", "value": 2}],
+          "semantic_aliases": {"0": 1},
+          "keyframes": false
+        },
+        "3": {
+          "name": "Angle", "type": "scalar", "default": 45,
+          "allowed": [45], "transport": "ignored", "semantic_type": "serialized_default",
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_spin_default"}, "calibration_fixtures": ["long-cohort-real-spin", "flat-parameters-spin-direction"],
+      "approximation": "reviewed centered incoming card rapidly grows and rotates over the outgoing frame before a clean full-frame settle",
+      "omission": "explicit In and Out Direction values are supported; Automatic is a reported bounded alias to In because adaptive direction selection is not implemented; exact materialized Angle=45 is a reported no-op, while every other value remains rejected"
+    },
+    {
+      "id": "transition-fx-swap-cohort",
+      "kind": "transition",
+      "uid": "FxPlug:ED30AF7F-E5F2-4E1D-9ED8-74F6F055887F",
+      "aliases": ["Swap"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "3": {
+          "name": "Direction", "type": "scalar", "default": 1,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Left", "value": 0}, {"label": "Right", "value": 1}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_swap_default"}, "calibration_fixtures": ["long-cohort-real-swap", "flat-parameters-swap-direction"],
+      "approximation": "reviewed separated perspective cards exchange over black with correct ownership and exact endpoints",
+      "omission": "the labeled Left and Right values are supported; unlabeled numeric values are rejected"
+    },
+    {
+      "id": "transition-motion-divide-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Dissolves.localized/Divide.localized/Divide.motr",
+      "aliases": ["Divide"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/1899850079/100/1899850080/2/100": {
+          "name": "Number of Sections", "type": "scalar", "default": 0,
+          "allowed": [0, 1, 2], "semantic_type": "enum",
+          "choices": [{"label": "4", "value": 0}, {"label": "3", "value": 1}, {"label": "2", "value": 2}],
+          "units": "sections", "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_divide_default"}, "calibration_fixtures": ["long-cohort-real-divide", "flat-parameters-divide-sections"],
+      "approximation": "reviewed three bordered vertical panels exchange with staggered opposing travel and a clean incoming settle",
+      "omission": "the exact three published section-count choices are supported; unknown values are rejected"
+    },
+    {
+      "id": "transition-motion-deco-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Dynamic Transitions.localized/Deco.localized/Deco.motr",
+      "aliases": ["Deco"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_deco_default"},
+      "calibration_fixtures": ["long-cohort-real-deco-introducing-allie"],
+      "approximation": "nested gold diamond ornament expands into the incoming source with Final Cut-like timing; genuine A/B confirms the recognizable Deco mechanism, source ownership, exact 90-frame timeline, and clean endpoints while ornament detail remains approximate",
+      "omission": "the calibrated fixed default executes; explicit source controls are rejected because no genuine parameter keys survived export"
+    },
+    {
+      "id": "transition-motion-bloom-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Lights.localized/Bloom.localized/Bloom.motr",
+      "aliases": ["Bloom"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_bloom_default"},
+      "transition_artifact": {
+        "abi": "spell-transition-v1",
+        "id": "cohort-bloom",
+        "version": 1,
+        "source": "cohort_bloom.transition.glsl",
+        "license": {"spdx": "LicenseRef-Bladeworks-Internal", "author": "Bladeworks", "provenance": "original calibrated CPU-expression port"}
+      },
+      "calibration_fixtures": ["long-cohort-real-bloom-yunah"],
+      "approximation": "bounded shoulder bloom rises into a white midpoint and burned incoming recovery; genuine A/B confirms the recognizable Bloom sequence, ownership, exact 90-frame timeline, and clean endpoints while highlight shape remains approximate",
+      "omission": "the calibrated fixed default executes; explicit source controls are rejected because no genuine parameter keys survived export"
+    },
+    {
+      "id": "transition-motion-flash-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Lights.localized/Flash.localized/Flash.motr",
+      "aliases": ["Flash"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_flash_default"}, "calibration_fixtures": ["long-cohort-real-flash"],
+      "approximation": "bounded exposure pulse reaches a white midpoint and recovers the incoming source sharply; genuine A/B confirms the recognizable Flash mechanism, ownership, exact 90-frame timeline, and clean endpoints while exposure intensity remains approximate",
+      "omission": "the calibrated fixed default executes; explicit source controls are rejected because no genuine parameter keys survived export"
+    },
+    {
+      "id": "transition-motion-lens-flare-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Lights.localized/Lens Flare.localized/Lens Flare.motr",
+      "aliases": ["Lens Flare"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_lens_flare_default"}, "calibration_fixtures": ["long-cohort-real-lens-flare"],
+      "approximation": "moving annular flare and secondary ghost travel through a broad exposure wash; genuine A/B confirms the recognizable Lens Flare mechanism, ownership, exact 90-frame timeline, and clean endpoints while ghost layout remains approximate",
+      "omission": "explicit source controls are rejected; the registered default remains executable"
+    },
+    {
+      "id": "transition-motion-light-noise-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Lights.localized/Light Noise.localized/Light Noise.motr",
+      "aliases": ["Light Noise"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_light_noise_default"}, "calibration_fixtures": ["long-cohort-real-light-noise"],
+      "approximation": "reviewed dual exposure pulses with soft bokeh, hidden source handoff, and exact timeline endpoints",
+      "omission": "Final Cut's pulse color and bokeh texture remain richer; explicit controls are rejected"
+    },
+    {
+      "id": "transition-motion-static-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Lights.localized/Static.localized/Static.motr",
+      "aliases": ["Static"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/987200168/100/987200169/2/100": {
+          "name": "Style", "type": "scalar", "default": 0,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Style A", "value": 0}, {"label": "Style B", "value": 1}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_static_default"}, "calibration_fixtures": ["long-cohort-real-static", "flat-parameters-static-style"],
+      "approximation": "reviewed dense temporal monochrome snow and horizontal-band interference with exact endpoints",
+      "omission": "Style is supported; the unpublished-key Graphics HDR Level control remains rejected"
+    },
+    {
+      "id": "transition-motion-clothesline-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Clothesline.localized/Clothesline.motr",
+      "aliases": ["Clothesline"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/1999869149/100/1999869150/2/100": {
+          "name": "Direction", "type": "scalar", "default": 0,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Right to Left", "value": 0}, {"label": "Left to Right", "value": 1}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_clothesline_default"}, "calibration_fixtures": ["long-cohort-real-clothesline", "flat-parameters-clothesline-direction"],
+      "approximation": "reviewed narrow top-hung incoming card opens over black and settles early to the full incoming frame",
+      "omission": "the exact two published directions are supported; unknown values are rejected"
+    },
+    {
+      "id": "transition-motion-color-planes-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Color Planes.localized/Color Planes.motr",
+      "aliases": ["Color Planes"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_color_planes_default"}, "calibration_fixtures": ["long-cohort-real-color-planes"],
+      "approximation": "reviewed broad separated color cards, green slit collapse, RGB-offset incoming handoff, and exact endpoints",
+      "omission": "explicit source controls are rejected; the registered default remains executable"
+    },
+    {
+      "id": "transition-motion-drop-in-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Drop In.localized/Drop In.motr",
+      "aliases": ["Drop In"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/999120132/100/999120133/2/100": {
+          "name": "Smoke", "type": "bool", "default": true, "allowed": [0, 1], "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_drop_in_default"}, "calibration_fixtures": ["long-cohort-real-drop-in", "flat-parameters-drop-in-smoke"],
+      "approximation": "incoming panel rises from the bottom boundary with a brief blurred top echo, reviewed ownership, and exact endpoints",
+      "omission": "Smoke is supported; the unpublished-key Graphics HDR Level control remains rejected"
+    },
+    {
+      "id": "transition-motion-earthquake-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Earthquake.localized/Earthquake.motr",
+      "aliases": ["Earthquake"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/980604875/100/980604876/2/100": {
+          "name": "Smoke", "type": "bool", "default": true, "allowed": [0, 1], "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_earthquake_default"}, "calibration_fixtures": ["long-cohort-real-earthquake", "flat-parameters-earthquake-smoke"],
+      "approximation": "reviewed two-axis shake and echo peak, incoming recovery, lower-frame dust cue, and exact endpoints",
+      "omission": "Smoke is supported; the unpublished-key Graphics HDR Level control remains rejected"
+    },
+    {
+      "id": "transition-motion-flashback-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Flashback.localized/Flashback.motr",
+      "aliases": ["Flashback"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_flashback_default"},
+      "calibration_fixtures": ["long-cohort-real-flashback-zuha-boompala", "long-cohort-real-flashback"],
+      "approximation": "reviewed liquid radial displacement, bounded temporal echo, burn ring, light pulse, and exact clean endpoints",
+      "omission": "explicit source controls are rejected; the registered default remains executable"
+    },
+    {
+      "id": "transition-motion-flip-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Flip.localized/Flip.motr",
+      "aliases": ["Flip"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/987260515/100/987260516/2/100": {
+          "name": "Direction", "type": "scalar", "default": 0,
+          "allowed": [0, 1, 2, 3], "semantic_type": "enum",
+          "choices": [{"label": "Right", "value": 0}, {"label": "Left", "value": 1}, {"label": "Up", "value": 2}, {"label": "Down", "value": 3}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_flip_default"}, "calibration_fixtures": ["long-cohort-real-flip", "flat-parameters-flip-direction"],
+      "approximation": "reviewed perspective whole-card edge-on reversal over black with the incoming source on the back face",
+      "omission": "Direction is supported; Color and Graphics HDR Level remain rejected because their FCPXML key shapes are unproved"
+    },
+    {
+      "id": "transition-motion-multi-flip-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Multi-flip.localized/Multi-flip.motr",
+      "aliases": ["Multi-flip"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_multi_flip_default"}, "calibration_fixtures": ["long-cohort-real-multi-flip"],
+      "approximation": "reviewed repeated whole-card edge-on reversals over black with deterministic alternating source faces",
+      "omission": "explicit source controls are rejected; the registered default remains executable"
+    },
+    {
+      "id": "transition-motion-pinwheel-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Pinwheel.localized/Pinwheel.motr",
+      "aliases": ["Pinwheel"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/1978700434/100/1978700435/2/100": {
+          "name": "Black Background", "type": "bool", "default": false, "allowed": [0, 1], "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_pinwheel_default"}, "calibration_fixtures": ["long-cohort-real-pinwheel", "flat-parameters-pinwheel-background"],
+      "approximation": "reviewed rotating four-blade negative-space reveal with bounded asymmetric blade growth and clean settlement",
+      "omission": "Black Background is supported; unknown values are rejected"
+    },
+    {
+      "id": "transition-motion-reflection-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Reflection.localized/Reflection.motr",
+      "aliases": ["Reflection"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/1999870985/100/1999870986/2/100": {
+          "name": "Direction", "type": "scalar", "default": 0,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "From Left", "value": 0}, {"label": "From Right", "value": 1}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_reflection_default"}, "calibration_fixtures": ["long-cohort-real-reflection", "flat-parameters-reflection-direction"],
+      "approximation": "reviewed two traveling perspective panels over black with center seam, dim mirrored floor, and clean settlement",
+      "omission": "Direction is supported; Reflectivity remains rejected because its direct FCPXML key is unproved"
+    },
+    {
+      "id": "transition-motion-rotate-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Rotate.localized/Rotate.motr",
+      "aliases": ["Rotate"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/987639695/100/987639696/2/100": {
+          "name": "Rotate", "type": "scalar", "default": 0,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Clockwise", "value": 0}, {"label": "CounterClockwise", "value": 1}],
+          "keyframes": false
+        },
+        "9999/987639695/100/1978700478/2/100": {
+          "name": "Black Background", "type": "bool", "default": false, "allowed": [0, 1], "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_rotate_default"}, "calibration_fixtures": ["long-cohort-real-rotate", "flat-parameters-rotate-controls"],
+      "approximation": "reviewed overlapping dual-card rotation with correct ownership and exact clean endpoints",
+      "omission": "Rotate and Black Background are supported; unknown values are rejected"
+    },
+    {
+      "id": "transition-motion-scale-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Scale.localized/Scale.motr",
+      "aliases": ["Scale"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/1999870157/100/1999870158/2/100": {
+          "name": "Direction", "type": "scalar", "default": 0,
+          "allowed": [0, 1, 2, 3], "semantic_type": "enum",
+          "choices": [{"label": "Up", "value": 0}, {"label": "Down", "value": 1}, {"label": "In", "value": 2}, {"label": "Out", "value": 3}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_scale_default"}, "calibration_fixtures": ["long-cohort-real-scale", "flat-parameters-scale-direction"],
+      "approximation": "reviewed centered incoming-card expansion and opacity handoff over the outgoing full-frame source",
+      "omission": "the exact four published direction choices are supported; unknown values are rejected"
+    },
+    {
+      "id": "transition-motion-smear-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Smear.localized/Smear.motr",
+      "aliases": ["Smear"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/989648291/100/989648292/2/100": {
+          "name": "Swipe Off", "type": "scalar", "default": 1,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Left", "value": 0}, {"label": "Right", "value": 1}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_smear_default"}, "calibration_fixtures": ["long-cohort-real-smear", "flat-parameters-smear-direction"],
+      "approximation": "reviewed front-loaded rightward horizontal edge smear with preserved left frame region and early incoming handoff",
+      "omission": "Final Cut's streak texture and recovery lead the portable result by roughly one frame; both published directions are supported"
+    },
+    {
+      "id": "transition-motion-swing-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Swing.localized/Swing.motr",
+      "aliases": ["Swing"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/987619294/100/987619295/2/100": {
+          "name": "Anchor", "type": "scalar", "default": 2,
+          "allowed": [0, 1, 2, 3], "semantic_type": "enum",
+          "choices": [{"label": "Right", "value": 0}, {"label": "Left", "value": 1}, {"label": "Top", "value": 2}, {"label": "Bottom", "value": 3}],
+          "keyframes": false
+        },
+        "9999/987619294/100/987619296/2/100": {
+          "name": "Direction", "type": "scalar", "default": 1,
+          "allowed": [0, 1], "semantic_type": "enum",
+          "choices": [{"label": "Towards", "value": 0}, {"label": "Away", "value": 1}],
+          "keyframes": false
+        },
+        "9999/987619294/100/1978700512/2/100": {
+          "name": "Black Background", "type": "bool", "default": false, "allowed": [0, 1], "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_swing_default"}, "calibration_fixtures": ["long-cohort-real-swing", "flat-parameters-swing-controls"],
+      "approximation": "reviewed source-switched hinged card keeps a large outgoing face, full-canvas incoming zoom at midpoint, and clean settle",
+      "omission": "Final Cut's exact pivot, rotation, zoom crop, and source timing remain richer; Anchor, Direction, and Black Background are supported"
+    },
+    {
+      "id": "transition-motion-switch-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Switch.localized/Switch.motr",
+      "aliases": ["Switch"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/1999871391/100/1999871392/2/100": {
+          "name": "Direction", "type": "scalar", "default": 1,
+          "allowed": [1, 2], "semantic_type": "enum",
+          "choices": [{"label": "From Left", "value": 1}, {"label": "From Right", "value": 2}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_switch_default"}, "calibration_fixtures": ["long-cohort-real-switch", "flat-parameters-switch-direction"],
+      "approximation": "reviewed opposed perspective cards rotate through a black center gap with exact endpoints",
+      "omission": "the exact two published directions are supported; unknown values are rejected"
+    },
+    {
+      "id": "transition-motion-arrows-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Objects.localized/Arrows.localized/Arrows.motr",
+      "aliases": ["Arrows"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/1979006420/100/1979006421/2/100": {
+          "name": "End Cap", "type": "scalar", "default": 0,
+          "allowed": [0, 3, 4, 5, 6], "semantic_type": "enum",
+          "choices": [{"label": "Arrow", "value": 0}, {"label": "Round", "value": 3}, {"label": "Square", "value": 4}, {"label": "None", "value": 5}, {"label": "Bevel", "value": 6}],
+          "keyframes": false
+        },
+        "9999/1979006420/100/1979006503/2/100": {
+          "name": "Motion Blur", "type": "bool", "default": false, "allowed": [0, 1], "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_arrows_default"}, "calibration_fixtures": ["long-cohort-real-arrows", "flat-parameters-arrows-controls"],
+      "approximation": "reviewed two-dimensional staggered field of oriented arrow shards with exact clean endpoints",
+      "omission": "the exact Final Cut arrow artwork is unavailable; all published End Cap and Motion Blur values are supported"
+    },
+    {
+      "id": "transition-motion-curtains-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Objects.localized/Curtains.localized/Curtains.motr",
+      "aliases": ["Curtains"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/989454316/100/989454317/2/100": {
+          "name": "Animation", "type": "scalar", "default": 0,
+          "allowed": [0, 1, 2], "semantic_type": "enum",
+          "choices": [{"label": "Open & Close", "value": 0}, {"label": "Open Only", "value": 1}, {"label": "Close Only", "value": 2}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_curtains_default"}, "calibration_fixtures": ["long-cohort-real-curtains", "flat-parameters-curtains-animation"],
+      "approximation": "reviewed red folded two-panel curtain opens from center with correct ownership and exact endpoints",
+      "omission": "Animation is supported; Curtain Color and Graphics HDR Level remain rejected because their FCPXML key shapes are unproved"
+    },
+    {
+      "id": "transition-motion-leaves-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Objects.localized/Leaves.localized/Leaves.motr",
+      "aliases": ["Leaves"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {
+        "9999/987200026/100/987200027/2/100": {
+          "name": "Season", "type": "scalar", "default": 0,
+          "allowed": [0, 1, 2, 3], "semantic_type": "enum",
+          "choices": [{"label": "Spring", "value": 0}, {"label": "Summer", "value": 1}, {"label": "Fall", "value": 2}, {"label": "Winter", "value": 3}],
+          "keyframes": false
+        }
+      }, "xfade": {"id": "cohort_leaves_default"}, "calibration_fixtures": ["long-cohort-real-leaves", "flat-parameters-leaves-season"],
+      "approximation": "reviewed large textured serrated leaves with deterministic sparse-to-dense tumbling and a covered source handoff",
+      "omission": "Spring, Summer, Fall, and Winter are supported; Custom is rejected because its dependent Custom Color key is unproved"
+    },
+    {
+      "id": "transition-motion-veil-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Objects.localized/Veil.localized/Veil.motr",
+      "aliases": ["Veil"],
+      "authoring_status": "authorable", "portable_status": "calibrated_portable", "handler": "xfade",
+      "parameters": {}, "xfade": {"id": "cohort_veil_default"}, "calibration_fixtures": ["long-cohort-real-veil"],
+      "approximation": "reviewed translucent folded white fabric ribbon sweeps across with covered source ownership and exact endpoints",
+      "omission": "Final Cut's fabric softness, stripe and fold texture, and layered flow remain richer; explicit controls are rejected"
+    },
+    {
+      "id": "transition-360-bloom-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Bloom.localized/360° Bloom.motr",
+      "aliases": ["360° Bloom"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {},
+      "xfade": {"id": "equirect_bloom_default"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract"],
+      "approximation": "source-luminance highlight bloom plus a bounded whiteout from an exposed stock Gaussian over a joined triple panorama and center crop, with reviewed ownership timing and exact clean endpoints",
+      "omission": "reject parameterized instances because the installed Motion template publishes no user controls"
+    },
+    {
+      "id": "transition-360-circle-wipe-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Circle Wipe.localized/360° Circle Wipe.motr",
+      "aliases": ["360° Circle Wipe"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {
+        "9999/10885/100/1999894671/2/100": {"name": "Speed", "type": "scalar", "default": 0, "allowed": [0, 1, 2, 3, 4, 5], "semantic_type": "enum"},
+        "9999/10885/100/1999894241/2/100": {"name": "Border", "type": "scalar", "default": 0, "allowed": [0, 1], "semantic_type": "boolean"},
+        "9999/10885/100/1999894240/2/100": {"name": "Border Width", "type": "scalar", "default": 0.49494949494949497, "minimum": 0, "maximum": 1}
+      },
+      "xfade": {"id": "equirect_circle_wipe"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract"],
+      "approximation": "great-circle spherical matte with periodic longitude distance, bounded center/easing/edge softness, and exact endpoints; published border controls remain explicitly unsupported",
+      "omission": "reject Border, Border Width, Border Color, Graphics HDR Level, and any unknown Motion controls"
+    },
+    {
+      "id": "transition-360-divide-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Divide.localized/360° Divide.motr",
+      "aliases": ["360° Divide"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {
+        "9999/10885/100/999552800/2/100": {"name": "Direction", "type": "scalar", "default": 2, "allowed": [0, 1, 2], "semantic_type": "enum"},
+        "9999/10885/100/999552899/2/100": {"name": "Speed", "type": "scalar", "default": 0, "allowed": [0, 5], "semantic_type": "enum"},
+        "9999/10885/100/10887/2/100": {"name": "Soften Edges", "type": "scalar", "default": 0, "minimum": 0, "maximum": 1},
+        "9999/10885/100/999166301/2/100": {"name": "Slices", "type": "scalar", "default": 0.25, "minimum": 0, "maximum": 1},
+        "9999/10885/100/999552867/2/100": {"name": "Spacing", "type": "scalar", "default": 0.75, "minimum": 0, "maximum": 1}
+      },
+      "xfade": {"id": "equirect_divide"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract"],
+      "approximation": "immediate 3.4x wrapped outgoing environment plus a reviewed nonuniform three-band East/West projection with bounded slice count, spacing, Motion menu timing, and exact incoming completion",
+      "omission": "reject malformed or unknown published controls instead of substituting a flat Divide transition"
+    },
+    {
+      "id": "transition-360-gaussian-blur-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Gaussian Blur.localized/360° Gaussian Blur.motr",
+      "aliases": ["360° Gaussian Blur"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {
+        "9999/999166152/100/999166153/2/100": {"name": "Blur Amount", "type": "scalar", "default": 0.4, "minimum": 0, "maximum": 1}
+      },
+      "xfade": {"id": "equirect_gaussian_blur"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract"],
+      "approximation": "skewed mild-to-strong stock-FFmpeg Gaussian recovery over a joined triple panorama and center crops, with early smooth incoming ownership, exact clean endpoints, and bounded horizontal/vertical strength",
+      "omission": "reject malformed blur controls instead of substituting the flat Gaussian transition"
+    },
+    {
+      "id": "transition-360-push-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Push.localized/360° Push.motr",
+      "aliases": ["360° Push"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {
+        "9999/1999892560/100/1999892562/2/100": {"name": "Direction", "type": "scalar", "default": 0, "allowed": [0, 1], "semantic_type": "enum"},
+        "9999/1999892560/100/1999895804/2/100": {"name": "Speed", "type": "scalar", "default": 0, "allowed": [0, 1, 2, 3, 4, 5], "semantic_type": "enum"},
+        "9999/1999892560/100/1999893684/2/100": {"name": "Soften Edges", "type": "scalar", "default": 0, "minimum": 0, "maximum": 1}
+      },
+      "xfade": {"id": "equirect_push"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract", "multicam-real-360-push"],
+      "approximation": "opposed East/West panorama trajectories with both longitude samples wrapped modulo project width, Motion menu timing, and a bounded moving seam",
+      "omission": "reject malformed controls instead of substituting the flat Push transition"
+    },
+    {
+      "id": "transition-360-reveal-wipe-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Reveal Wipe.localized/360° Reveal Wipe.motr",
+      "aliases": ["360° Reveal Wipe"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {
+        "9999/10885/100/1999896191/2/100": {"name": "Speed", "type": "scalar", "default": 0, "allowed": [0, 1, 2, 3, 4, 5], "semantic_type": "enum"},
+        "9999/10885/100/10887/2/100": {"name": "Soften Edges", "type": "scalar", "default": 0, "minimum": 0, "maximum": 1},
+        "9999/10885/100/1999893489/2/100": {"name": "Border", "type": "scalar", "default": 0, "allowed": [0, 1], "semantic_type": "boolean"},
+        "9999/10885/100/1999893490/2/100": {"name": "Border Width", "type": "scalar", "default": 0.48979591836734693, "minimum": 0, "maximum": 1}
+      },
+      "xfade": {"id": "equirect_reveal_wipe"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract"],
+      "approximation": "stationary sources revealed by a symmetric east/west band using shortest periodic longitude distance; published border controls remain explicitly unsupported",
+      "omission": "reject Border, Border Width, Border Color, Graphics HDR Level, and any unknown Motion controls"
+    },
+    {
+      "id": "transition-360-slide-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Slide.localized/360° Slide.motr",
+      "aliases": ["360° Slide"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {
+        "9999/1999892560/100/1999892562/2/100": {"name": "Direction", "type": "scalar", "default": 0, "allowed": [0, 1], "semantic_type": "enum"},
+        "9999/1999892560/100/1999895804/2/100": {"name": "Speed", "type": "scalar", "default": 0, "allowed": [0, 1, 2, 3, 4, 5], "semantic_type": "enum"},
+        "9999/1999892560/100/1999893684/2/100": {"name": "Soften Edges", "type": "scalar", "default": 0, "minimum": 0, "maximum": 1}
+      },
+      "xfade": {"id": "equirect_slide"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract"],
+      "approximation": "stationary outgoing sphere with corrected East/West longitude-wrapped incoming trajectory, Motion menu timing, and bounded seam softness",
+      "omission": "reject malformed controls instead of substituting the flat Slide transition"
+    },
+    {
+      "id": "transition-360-wipe-cohort",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/360°.localized/360° Wipe.localized/360° Wipe.motr",
+      "aliases": ["360° Wipe"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "equirectangular",
+      "parameters": {
+        "9999/10885/100/1999892653/2/100": {"name": "Direction", "type": "scalar", "default": 0, "allowed": [0, 1], "semantic_type": "enum"},
+        "9999/10885/100/1999892878/2/100": {"name": "Speed", "type": "scalar", "default": 0, "allowed": [0, 1, 2, 3, 4, 5], "semantic_type": "enum"},
+        "9999/10885/100/10887/2/100": {"name": "Soften Edges", "type": "scalar", "default": 0, "minimum": 0, "maximum": 1},
+        "9999/10885/100/1999892918/2/100": {"name": "Border", "type": "scalar", "default": 0, "allowed": [0, 1], "semantic_type": "boolean"},
+        "9999/10885/100/1999892986/2/100": {"name": "Border Width", "type": "scalar", "default": 0.5, "minimum": 0, "maximum": 1}
+      },
+      "xfade": {"id": "equirect_wipe"},
+      "calibration_fixtures": ["fcp-360-defaults-roundtrip", "portable-360-transition-contract"],
+      "approximation": "immediate 3.4x wrapped outgoing environment, held directed hemisphere, and late cyclic band collapse with exact incoming completion; published border controls remain explicitly unsupported",
+      "omission": "reject Border, Border Width, Border Color, Graphics HDR Level, and any unknown Motion controls"
+    },
+    {
+      "id": "transition-cross-dissolve",
+      "kind": "transition",
+      "uid": "FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265",
+      "aliases": ["Cross Dissolve", "Dissolve"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cross_dissolve",
+      "parameters": {},
+      "calibration_fixtures": ["portable-e2e-cross-dissolve"],
+      "approximation": "default Final Cut video dissolve over two fully composed transition sides",
+      "omission": "replace with a hard cut"
+    },
+    {
+      "id": "effect-spell-radial-blur-v1",
+      "kind": "video_filter",
+      "uid": "SpellEffect:RadialBlur:v1",
+      "aliases": [],
+      "authoring_status": "preserve_only",
+      "portable_status": "unsupported",
+      "handler": "spell_effect_vulkan",
+      "parameters": {
+        "center": {"name": "center", "type": "vec2", "default": [0.5, 0.5], "minimum": 0.0, "maximum": 1.0},
+        "amount": {"name": "amount", "type": "scalar", "default": 0.08, "minimum": 0.0, "maximum": 0.2}
+      },
+      "effect_artifact": {
+        "abi": "spell-effect-v1",
+        "id": "radial-blur",
+        "version": 1,
+        "source": "radial_blur.effect.glsl",
+        "license": {"spdx": "LicenseRef-Bladeworks-Internal", "author": "Bladeworks", "provenance": "original bounded fixture"}
+      },
+      "calibration_fixtures": ["spell-effect-radial-blur-v1"],
+      "omission": "leave the underlying clip unchanged and report Vulkan or artifact unavailability"
+    },
+    {
+      "id": "effect-spell-pixellate-v1",
+      "kind": "video_filter",
+      "uid": "SpellEffect:Pixellate:v1",
+      "aliases": [],
+      "authoring_status": "preserve_only",
+      "portable_status": "unsupported",
+      "handler": "spell_effect_vulkan",
+      "parameters": {
+        "pixel_size": {"name": "pixel_size", "type": "vec2", "default": [16.0, 16.0], "minimum": 1.0, "maximum": 256.0}
+      },
+      "effect_artifact": {
+        "abi": "spell-effect-v1",
+        "id": "pixellate",
+        "version": 1,
+        "source": "pixellate.effect.glsl",
+        "license": {"spdx": "LicenseRef-Bladeworks-Internal", "author": "Bladeworks", "provenance": "original bounded fixture"}
+      },
+      "calibration_fixtures": ["spell-effect-pixellate-v1"],
+      "omission": "leave the underlying clip unchanged and report Vulkan or artifact unavailability"
+    },
+    {
+      "id": "transition-fade-color",
+      "kind": "transition",
+      "uid": "FxPlug:F779C565-486D-4633-8035-0374B4DB8F5C",
+      "aliases": ["Fade to Color", "Fade to Black", "Fade to White"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "fade_color",
+      "parameters": {"3": {"name": "Color", "components": 3, "minimum": 0, "maximum": 1}},
+      "calibration_fixtures": ["portable-e2e-fade-white"],
+      "omission": "replace with a hard cut"
+    },
+    {
+      "id": "transition-wipe",
+      "kind": "transition",
+      "uid": "FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8",
+      "aliases": ["Wipe", "Wipe Left", "Wipe Right", "Wipe Up", "Wipe Down"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "wipe",
+      "parameters": {"13": {"name": "Direction", "allowed": ["0", "1", "2", "3"]}},
+      "calibration_fixtures": ["portable-e2e-wipe-left"],
+      "omission": "replace with a hard cut"
+    },
+    {
+      "id": "transition-slide-push",
+      "kind": "transition",
+      "uid": "FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648",
+      "aliases": ["Slide", "Push", "Slide Left", "Slide Right", "Slide Up", "Slide Down", "Push Left", "Push Right", "Push Up", "Push Down"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "slide_push",
+      "parameters": {
+        "4": {"name": "Direction", "allowed": ["0", "1", "2", "3"]},
+        "5": {"name": "Mode", "default": "0", "allowed": ["0", "2"]}
+      },
+      "calibration_fixtures": ["portable-e2e-push-left"],
+      "omission": "replace with a hard cut"
+    },
+    {
+      "id": "transition-spell-crossfade-v1",
+      "kind": "transition",
+      "uid": "SpellTransition:Crossfade:v1",
+      "aliases": [],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "spell_transition_vulkan",
+      "parameters": {
+        "curve": {"name": "curve", "type": "scalar", "default": 1.0, "minimum": 0.25, "maximum": 4.0}
+      },
+      "transition_artifact": {
+        "abi": "spell-transition-v1",
+        "id": "crossfade",
+        "version": 1,
+        "source": "crossfade.transition.glsl",
+        "license": {"spdx": "LicenseRef-Bladeworks-Internal", "author": "Bladeworks", "provenance": "original fixture"}
+      },
+      "calibration_fixtures": ["spell-transition-crossfade-v1"],
+      "omission": "retain a hard cut and report Vulkan or artifact unavailability"
+    },
+    {
+      "id": "transition-motion-directional-spell-v1",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Blurs.localized/Directional.localized/Directional.motr",
+      "aliases": ["Directional"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "xfade",
+      "parameters": {},
+      "xfade": {"id": "directional_blur_default"},
+      "transition_artifact": {
+        "abi": "spell-transition-v1",
+        "id": "crosswarp",
+        "version": 1,
+        "source": "crosswarp.transition.glsl",
+        "license": {"spdx": "LicenseRef-Bladeworks-Internal", "author": "Bladeworks", "provenance": "original fixture"}
+      },
+      "calibration_fixtures": [],
+      "approximation": "upstream xfade hblur using the inspected Motion template's horizontal default; genuine headless Final Cut semantic A/B is a strong family/direction pass (transition-window luma SSIM 0.895); Directional Angle is not accepted because its FCPXML key has not been validated",
+      "omission": "registered default executes through upstream xfade; it remains experimental pending a layered real-timeline A/B case"
+    },
+    {
+      "id": "transition-motion-zoom-spell-v1",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Blurs.localized/Zoom.localized/Zoom.motr",
+      "aliases": ["Zoom"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "xfade",
+      "parameters": {
+        "9999/988471386/3/999166426/1": {"name": "Amount", "type": "scalar", "default": 100, "minimum": 0, "maximum": 100, "keyframes": true},
+        "9999/988471386/3/999166426/2": {"name": "Zoom Center", "type": "vec2", "default": [0.5, 0.5], "minimum": -16384, "maximum": 16384, "keyframes": true}
+      },
+      "xfade": {"id": "zoom_blur_default"},
+      "transition_artifact": {
+        "abi": "spell-transition-v1",
+        "id": "zoom-blur",
+        "version": 1,
+        "source": "zoom_blur.transition.glsl",
+        "license": {"spdx": "LicenseRef-Bladeworks-Internal", "author": "Bladeworks", "provenance": "original fixture"}
+      },
+      "calibration_fixtures": ["stock-semantic-zoom-radial-v2"],
+      "approximation": "bounded twenty-five-scale radial streak maps the genuine Amount and Zoom Center controls across both recursively composed sides with asymmetric activity and cubic source ownership; off-center values explicitly select the stock CPU graph",
+      "omission": "reject unknown controls, malformed values, off-canvas resolved centers, and keyframed instances until transition parameter animation is implemented"
+    },
+    {
+      "id": "transition-fx-circle-spell-v1",
+      "kind": "transition",
+      "uid": "FxPlug:1C52AC71-7116-4248-B51F-5F5641EA9EDD",
+      "aliases": ["Circle", "Circle Open", "Circle Close"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "xfade",
+      "parameters": {
+        "7": {"name": "mode", "type": "bool", "default": false}
+      },
+      "xfade": {"id": "circle_default"},
+      "transition_artifact": {
+        "abi": "spell-transition-v1",
+        "id": "circle-reveal",
+        "version": 1,
+        "source": "circle_reveal.transition.glsl",
+        "license": {"spdx": "LicenseRef-Bladeworks-Internal", "author": "Bladeworks", "provenance": "original bounded fixture"}
+      },
+      "calibration_fixtures": [],
+      "approximation": "upstream xfade circleopen/circleclose selected by genuine Final Cut Mode key 7; genuine headless Final Cut semantic A/B is a strong direction/geometry pass for both modes (transition-window luma SSIM 0.932 open and 0.931 close), with different feathering/easing",
+      "omission": "registered modes execute through upstream xfade; they remain experimental pending a layered real-timeline A/B case"
+    },
+    {
+      "id": "transition-motion-squares-xfade-default",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Objects.localized/Squares.localized/Squares.motr",
+      "aliases": ["Squares"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "xfade",
+      "parameters": {},
+      "xfade": {"id": "squares_tile_reveal_default"},
+      "calibration_fixtures": ["stock-semantic-squares-v2"],
+      "approximation": "bounded custom xfade selects complete square tiles with deterministic per-tile reveal times; genuine Final Cut headless A/B passes the visible tile-reveal mechanism and exact timing, while tile order and pacing remain approximate (transition-window luma SSIM 0.810)",
+      "omission": "the default tile-reveal prototype executes with an approximation finding; parameterized instances remain unsupported"
+    },
+    {
+      "id": "transition-motion-fall-xfade-default",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Fall.localized/Fall.motr",
+      "aliases": ["Fall"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "xfade",
+      "parameters": {},
+      "xfade": {"id": "fall_default"},
+      "calibration_fixtures": ["stock-semantic-fall-panel-v2"],
+      "approximation": "bounded inverse transform rotates, scales, and accelerates the recursively composed outgoing panel downward over the incoming side; genuine Final Cut A/B confirms matching ownership, departure direction, late reveal, timing, and endpoints while fold depth and shadow remain approximate",
+      "omission": "the calibrated fixed default executes; reject parameterized instances because no genuine FCPXML parameter keys have been validated"
+    },
+    {
+      "id": "transition-motion-black-hole-xfade-default",
+      "kind": "transition",
+      "uid": ".../Transitions.localized/Movements.localized/Black Hole.localized/Black Hole.motr",
+      "aliases": ["Black Hole"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "xfade",
+      "parameters": {
+        "9999/10059/10065/3/989648928/1": {"name": "Duration", "type": "scalar", "default": 0, "allowed": [0, 0.34]},
+        "9999/10059/10065/3/989648928/10001": {"name": "Trail Opacity", "type": "scalar", "default": 1, "minimum": 0, "maximum": 1, "keyframes": true},
+        "9999/10059/10065/3/989648928/10002": {"name": "Flip", "type": "bool", "default": false},
+        "9999/10059/10065/3/989648928/10003": {"name": "Input Points", "type": "bool", "default": true},
+        "9999/10059/10065/3/989648928/2": {"name": "Echoes", "type": "scalar", "default": 4, "minimum": 1, "maximum": 30, "keyframes": true},
+        "9999/10059/10065/3/989648928/3": {"name": "Decay", "type": "scalar", "default": 1, "allowed": [1]},
+        "9999/10059/10065/3/989648928/4": {"name": "Trail On", "type": "scalar", "default": 0, "allowed": [0, 1], "semantic_type": "enum"}
+      },
+      "xfade": {"id": "black_hole_default"},
+      "calibration_fixtures": ["stock-semantic-black-hole-hourglass-v2"],
+      "approximation": "bounded two-axis hourglass warp preserves the reviewed default and maps the genuinely round-tripped Trails object, Echoes, Trail On, and Trail Opacity controls to renderer-owned light/dark echo bands",
+      "omission": "reject unknown structural values, malformed ranges, and keyframed instances until transition parameter animation is implemented"
+    },
+    {
+      "id": "transition-fx-cross-zoom-xfade-default",
+      "kind": "transition",
+      "uid": "FxPlug:662A1077-43A0-4340-BBA9-5580BA4C729C",
+      "aliases": ["Cross Zoom"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "xfade",
+      "parameters": {
+        "3": {"name": "Amount", "type": "scalar", "default": 50, "minimum": 0, "maximum": 100, "keyframes": true},
+        "1": {"name": "Start Point", "type": "vec2", "default": [0.75, 0.5], "minimum": 0, "maximum": 1, "keyframes": true},
+        "2": {"name": "End Point", "type": "vec2", "default": [0.25, 0.5], "minimum": 0, "maximum": 1, "keyframes": true}
+      },
+      "xfade": {"id": "cross_zoom_default"},
+      "calibration_fixtures": ["stock-semantic-cross-zoom-radial-v2"],
+      "approximation": "bounded stronger twenty-five-scale radial streak maps the FxPlug Amount, Start Point, and End Point controls independently across outgoing and incoming sides with cubic source ownership",
+      "omission": "reject unknown controls, malformed ranges, and keyframed instances until transition parameter animation is implemented"
+    },
+    {
+      "id": "transition-fx-cross-blur-xfade-default",
+      "kind": "transition",
+      "uid": "FxPlug:D1486D23-5E52-449A-B5ED-CB3E80650041",
+      "aliases": ["Cross Blur"],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": "xfade",
+      "parameters": {},
+      "xfade": {"id": "cross_blur_default"},
+      "calibration_fixtures": [],
+      "approximation": "upstream xfade hblur using the genuine parameterless Cross Blur UID; genuine headless Final Cut semantic A/B is a strong blur-family pass (transition-window luma SSIM 0.892), with different kernel/easing",
+      "omission": "registered default executes through upstream xfade; it remains experimental pending a layered real-timeline A/B case"
+    },
+    {
+      "id": "title-motion-unsupported",
+      "kind": "title",
+      "uid_glob": ".../Titles.localized/*.moti",
+      "aliases": [],
+      "authoring_status": "authorable",
+      "portable_status": "apple_only",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "non-Basic Motion title template omitted in the MVP"
+    },
+    {
+      "id": "transition-motion-unsupported",
+      "kind": "transition",
+      "uid_glob": ".../Transitions.localized/*.motr",
+      "aliases": [],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "Motion transition becomes a hard cut in the MVP"
+    },
+    {
+      "id": "transition-fxplug-unsupported",
+      "kind": "transition",
+      "uid_glob": "FxPlug:*",
+      "aliases": [],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "unimplemented FxPlug transition becomes a hard cut"
+    },
+    {
+      "id": "effect-motion-unsupported",
+      "kind": "video_filter",
+      "uid_glob": ".../Effects.localized/*.moef",
+      "aliases": [],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "Motion effect omitted; underlying clip remains"
+    },
+    {
+      "id": "effect-fxplug-unsupported",
+      "kind": "video_filter",
+      "uid_glob": "FxPlug:*",
+      "aliases": [],
+      "authoring_status": "authorable",
+      "portable_status": "unsupported",
+      "handler": null,
+      "parameters": {},
+      "calibration_fixtures": [],
+      "omission": "unimplemented FxPlug effect omitted; underlying clip remains"
+    }
+  ],
+  "documented_unsupported_transitions": [
+    {"uid": "FxPlug:21B9D89C-4162-43FF-BA07-B019989E4940", "aliases": ["Page Curl"], "parameters": {"1": {"name": "Direction"}}},
+    {"uid": "FxPlug:196B9DB2-28FD-420F-9BA1-3F0E9EEBBAAA", "aliases": ["Spin"], "parameters": {"1": {"name": "Mode"}}},
+    {"uid": "FxPlug:662A1077-43A0-4340-BBA9-5580BA4C729C", "aliases": ["Cross Zoom"], "parameters": {}},
+    {"uid": "FxPlug:D1486D23-5E52-449A-B5ED-CB3E80650041", "aliases": ["Cross Blur"], "parameters": {}},
+    {"uid": "FxPlug:B2C3F87B-2A21-4E13-8173-46ED4FEBC57A", "aliases": ["Clock"], "parameters": {}},
+    {"uid": "FxPlug:539C8A29-BBED-4670-B774-338109A7DB68", "aliases": ["Center"], "parameters": {}},
+    {"uid": "FxPlug:653CCCCD-6CB1-4602-B9B3-181B1C53E069", "aliases": [], "parameters": {}},
+    {"uid": "FxPlug:66B87635-119C-40B2-BF6E-537A3165FB95", "aliases": [], "parameters": {}},
+    {"uid": "FxPlug:8473FF7F-38B9-43D4-AD3B-AFE0F75F8757", "aliases": ["Puzzle"], "parameters": {"4": {"name": "Direction"}}},
+    {"uid": "FxPlug:D386C0D5-5BD3-4A0D-86FC-6B9878C76451", "aliases": [], "parameters": {}},
+    {"uid": "FxPlug:ED30AF7F-E5F2-4E1D-9ED8-74F6F055887F", "aliases": ["Swap"], "parameters": {"3": {"name": "Direction"}}},
+    {"uid": "FxPlug:ED6B803E-CAF7-46CE-85A4-0811D457749F", "aliases": [], "parameters": {}}
+  ],
+  "documented_unsupported_effects": [
+    {"uid": "FxPlug:9C13F991-BC99-4DC8-B150-381D7CCE183B", "aliases": ["Drop Shadow"], "parameters": {"2": {"name": "Opacity"}, "3": {"name": "Position"}, "4": {"name": "Blur"}, "5": {"name": "Blur Falloff"}, "7": {"name": "Perspective Amount"}, "8": {"name": "Presets"}}},
+    {"uid": ".../Effects.localized/Basics.localized/Vibrancy.localized/Vibrancy.moef", "aliases": ["Vibrancy"]},
+    {"uid": ".../Effects.localized/Blur.localized/Directional.localized/Directional.moef", "aliases": ["Directional"]},
+    {"uid": ".../Effects.localized/Blur.localized/Focus.localized/Focus.moef", "aliases": ["Focus"]},
+    {"uid": ".../Effects.localized/Blur.localized/Radial.localized/Radial.moef", "aliases": ["Radial"]},
+    {"uid": ".../Effects.localized/Distortion.localized/Crop & Feather.localized/Crop & Feather.moef", "aliases": ["Crop & Feather"]},
+    {"uid": ".../Effects.localized/Distortion.localized/Droplet.localized/Droplet.moef", "aliases": ["Droplet"]},
+    {"uid": ".../Effects.localized/Distortion.localized/Earthquake.localized/Earthquake.moef", "aliases": ["Earthquake"]},
+    {"uid": ".../Effects.localized/Distortion.localized/Fisheye.localized/Fisheye.moef", "aliases": ["Fisheye"]},
+    {"uid": ".../Effects.localized/Masks.localized/Vignette Mask.localized/Vignette Mask.moef", "aliases": ["Vignette Mask"]},
+    {"uid": ".../Effects.localized/Stylize.localized/Camcorder.localized/Camcorder.moef", "aliases": ["Camcorder"], "parameters": {"9999/999213243/100/999213300/2/100": {"name": "Recording"}, "9999/999213243/100/999214036/2/100": {"name": "Size"}}},
+    {"uid": ".../Effects.localized/Stylize.localized/Cartoon.localized/Cartoon.moef", "aliases": ["Cartoon"]},
+    {"uid": ".../Effects.localized/Stylize.localized/Pixellate.localized/Pixellate.moef", "aliases": ["Pixellate"]},
+    {"uid": ".../Effects.localized/Tiling.localized/Kaleidoscope.localized/Kaleidoscope.moef", "aliases": ["Kaleidoscope"]},
+    {"uid": ".../Effects.localized/Tiling.localized/Perspective Tile.localized/Perspective Tile.moef", "aliases": ["Perspective Tile"]}
+  ],
+  "documented_motion_transition_uids": [
+    ".../Transitions.localized/360°.localized/360° Bloom.localized/360° Bloom.motr",
+    ".../Transitions.localized/360°.localized/360° Circle Wipe.localized/360° Circle Wipe.motr",
+    ".../Transitions.localized/360°.localized/360° Divide.localized/360° Divide.motr",
+    ".../Transitions.localized/360°.localized/360° Gaussian Blur.localized/360° Gaussian Blur.motr",
+    ".../Transitions.localized/360°.localized/360° Push.localized/360° Push.motr",
+    ".../Transitions.localized/360°.localized/360° Reveal Wipe.localized/360° Reveal Wipe.motr",
+    ".../Transitions.localized/360°.localized/360° Slide.localized/360° Slide.motr",
+    ".../Transitions.localized/360°.localized/360° Wipe.localized/360° Wipe.motr",
+    ".../Transitions.localized/Dynamic Transitions.localized/Deco.localized/Deco.motr",
+    ".../Transitions.localized/Blurs.localized/Directional.localized/Directional.motr",
+    ".../Transitions.localized/Blurs.localized/Gaussian.localized/Gaussian.motr",
+    ".../Transitions.localized/Blurs.localized/Radial.localized/Radial.motr",
+    ".../Transitions.localized/Blurs.localized/Zoom.localized/Zoom.motr",
+    ".../Transitions.localized/Dissolves.localized/Divide.localized/Divide.motr",
+    ".../Transitions.localized/Lights.localized/Bloom.localized/Bloom.motr",
+    ".../Transitions.localized/Lights.localized/Flash.localized/Flash.motr",
+    ".../Transitions.localized/Lights.localized/Lens Flare.localized/Lens Flare.motr",
+    ".../Transitions.localized/Lights.localized/Light Noise.localized/Light Noise.motr",
+    ".../Transitions.localized/Lights.localized/Static.localized/Static.motr",
+    ".../Transitions.localized/Movements.localized/Black Hole.localized/Black Hole.motr",
+    ".../Transitions.localized/Movements.localized/Clothesline.localized/Clothesline.motr",
+    ".../Transitions.localized/Movements.localized/Color Planes.localized/Color Planes.motr",
+    ".../Transitions.localized/Movements.localized/Drop In.localized/Drop In.motr",
+    ".../Transitions.localized/Movements.localized/Earthquake.localized/Earthquake.motr",
+    ".../Transitions.localized/Movements.localized/Fall.localized/Fall.motr",
+    ".../Transitions.localized/Movements.localized/Flashback.localized/Flashback.motr",
+    ".../Transitions.localized/Movements.localized/Flip.localized/Flip.motr",
+    ".../Transitions.localized/Movements.localized/Multi-flip.localized/Multi-flip.motr",
+    ".../Transitions.localized/Movements.localized/Pinwheel.localized/Pinwheel.motr",
+    ".../Transitions.localized/Movements.localized/Push.localized/Push.motr",
+    ".../Transitions.localized/Movements.localized/Reflection.localized/Reflection.motr",
+    ".../Transitions.localized/Movements.localized/Rotate.localized/Rotate.motr",
+    ".../Transitions.localized/Movements.localized/Scale.localized/Scale.motr",
+    ".../Transitions.localized/Movements.localized/Smear.localized/Smear.motr",
+    ".../Transitions.localized/Movements.localized/Swing.localized/Swing.motr",
+    ".../Transitions.localized/Movements.localized/Switch.localized/Switch.motr",
+    ".../Transitions.localized/Objects.localized/Arrows.localized/Arrows.motr",
+    ".../Transitions.localized/Objects.localized/Curtains.localized/Curtains.motr",
+    ".../Transitions.localized/Objects.localized/Leaves.localized/Leaves.motr",
+    ".../Transitions.localized/Objects.localized/Squares.localized/Squares.motr",
+    ".../Transitions.localized/Objects.localized/Veil.localized/Veil.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/3D Rectangle.localized/3D Rectangle.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/Clone Spin.localized/Clone Spin.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/Combo Spin.localized/Combo Spin.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/Concentric.localized/Concentric.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/Duplicate.localized/Duplicate.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/Multi.localized/Multi.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/Vertigo.localized/Vertigo.motr",
+    ".../Transitions.localized/Replicator:Clones.localized/Video Wall.localized/Video Wall.motr",
+    ".../Transitions.localized/Stylized.localized/Boxes.localized/Center Reveal.localized/Center Reveal.motr",
+    ".../Transitions.localized/Stylized.localized/Boxes.localized/Slide In.localized/Slide In.motr",
+    ".../Transitions.localized/Stylized.localized/Cinema.localized/Light Sweep.localized/Light Sweep.motr",
+    ".../Transitions.localized/Stylized.localized/Color Panels.localized/Color Panels.motr",
+    ".../Transitions.localized/Stylized.localized/Data.localized/Panels Across.localized/Panels Across.motr",
+    ".../Transitions.localized/Stylized.localized/Data.localized/Panels Random.localized/Panels Random.motr",
+    ".../Transitions.localized/Stylized.localized/Documentary.localized/Close & Open.localized/Close & Open.motr",
+    ".../Transitions.localized/Stylized.localized/Documentary.localized/Slide.localized/Slide.motr",
+    ".../Transitions.localized/Stylized.localized/Event.localized/Heart.localized/Heart.motr",
+    ".../Transitions.localized/Stylized.localized/Event.localized/Loop.localized/Loop.motr",
+    ".../Transitions.localized/Stylized.localized/Kinetic.localized/Center.localized/Center.motr",
+    ".../Transitions.localized/Stylized.localized/Kinetic.localized/Lower.localized/Lower.motr",
+    ".../Transitions.localized/Stylized.localized/Nature.localized/Diagonal.localized/Diagonal.motr",
+    ".../Transitions.localized/Stylized.localized/Nature.localized/Glide.localized/Glide.motr",
+    ".../Transitions.localized/Stylized.localized/Tribute.localized/Up:Over.localized/Up:Over.motr",
+    ".../Transitions.localized/Wipes.localized/Diagonal.localized/Diagonal.motr",
+    ".../Transitions.localized/Wipes.localized/Mask.localized/Mask.motr"
+  ],
+  "documented_title_uids": [
+    ".../Titles.localized/Build In:Out.localized/Drifting.localized/Drifting.moti",
+    ".../Titles.localized/Simple.localized/Standard.localized/Standard.moti",
+    ".../Titles.localized/Simple.localized/Standard Lower Third.localized/Standard Lower Third.moti",
+    ".../Titles.localized/Dynamic Titles.localized/Deco.localized/Lower Third.localized/Lower Third.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Timecode.localized/Essential Timecode.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Rotate.localized/Essential Rotate.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Text Spacing.localized/Essential Text Spacing.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Tumble.localized/Essential Tumble.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Slate.localized/Essential Slate.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti",
+    ".../Titles.localized/Essential Titles.localized/Essential Lower Third.localized/Essential Lower Third.moti",
+    ".../Titles.localized/Build In:Out.localized/Glow.localized/Glow.moti",
+    ".../Titles.localized/Build In:Out.localized/Centered.localized/Centered.moti",
+    ".../Titles.localized/Build In:Out.localized/Scrapbook.localized/Fade.localized/Fade.moti",
+    ".../Titles.localized/Build In:Out.localized/Far Far Away.localized/Far Far Away.moti",
+    ".../Titles.localized/Build In:Out.localized/Horizontal Blur.localized/Horizontal Blur.moti",
+    ".../Titles.localized/Build In:Out.localized/Sports.localized/Scale.localized/Scale.moti",
+    ".../Titles.localized/Build In:Out.localized/Sideways Drift.localized/Sideways Drift.moti",
+    ".../Titles.localized/Build In:Out.localized/Ticker.localized/Ticker.moti",
+    ".../Titles.localized/Build In:Out.localized/Vertical Drift.localized/Vertical Drift.moti",
+    ".../Titles.localized/Build In:Out.localized/Zoom.localized/Zoom.moti",
+    ".../Titles.localized/Bumper:Opener.localized/Lens Flare.localized/Lens Flare.moti",
+    ".../Titles.localized/Bumper:Opener.localized/Pull Focus.localized/Pull Focus.moti",
+    ".../Titles.localized/Bumper:Opener.localized/Filmstrip.localized/Push.localized/Push.moti",
+    ".../Titles.localized/Bumper:Opener.localized/Sports.localized/Push.localized/Push.moti",
+    ".../Titles.localized/Bumper:Opener.localized/News.localized/Reveal.localized/Reveal.moti",
+    ".../Titles.localized/Bumper:Opener.localized/Photo Album.localized/Zoom In.localized/Zoom In.moti",
+    ".../Titles.localized/Credits.localized/Photo Album.localized/Push Out.localized/Push Out.moti",
+    ".../Titles.localized/Credits.localized/Scrapbook.localized/Push Out.localized/Push Out.moti",
+    ".../Titles.localized/Credits.localized/Scrolling.localized/Scrolling.moti",
+    ".../Titles.localized/Credits.localized/Scrapbook.localized/Tilt.localized/Tilt.moti",
+    ".../Titles.localized/Credits.localized/Scrapbook.localized/Turn.localized/Turn.moti",
+    ".../Titles.localized/Lower Thirds.localized/News.localized/Centered.localized/Centered.moti",
+    ".../Titles.localized/Lower Thirds.localized/Filmstrip.localized/Left.localized/Left.moti",
+    ".../Titles.localized/Lower Thirds.localized/Scrapbook.localized/Left.localized/Left.moti",
+    ".../Titles.localized/Lower Thirds.localized/Overlap.localized/Overlap.moti",
+    ".../Titles.localized/Lower Thirds.localized/Right.localized/Right.moti",
+    ".../Titles.localized/Lower Thirds.localized/News.localized/Right.localized/Right.moti",
+    ".../Titles.localized/Lower Thirds.localized/Scrapbook.localized/Right.localized/Right.moti",
+    ".../Titles.localized/Lower Thirds.localized/News.localized/Slide In.localized/Slide In.moti",
+    ".../Titles.localized/Lower Thirds.localized/Upper.localized/Upper.moti",
+    ".../Titles.localized/Lower Thirds.localized/Scrapbook.localized/Upper.localized/Upper.moti",
+    ".../Titles.localized/Simple.localized/Expand.localized/Expand.moti",
+    ".../Titles.localized/Simple.localized/Expand Lower Third.localized/Expand Lower Third.moti",
+    ".../Titles.localized/Simple.localized/Focus.localized/Focus.moti",
+    ".../Titles.localized/Simple.localized/Focus Lower Third.localized/Focus Lower Third.moti",
+    ".../Titles.localized/Simple.localized/Gravity.localized/Gravity.moti",
+    ".../Titles.localized/Simple.localized/Gravity Lower Third.localized/Gravity Lower Third.moti",
+    ".../Titles.localized/Simple.localized/Line.localized/Line.moti",
+    ".../Titles.localized/Simple.localized/Line Lower Third.localized/Line Lower Third.moti",
+    ".../Titles.localized/Simple.localized/Pop-up.localized/Popup.moti",
+    ".../Titles.localized/Simple.localized/Pop-up Lower Third.localized/Popup Lower Third.moti",
+    ".../Titles.localized/Simple.localized/Prism.localized/Prism.moti",
+    ".../Titles.localized/Simple.localized/Prism Lower Third.localized/Prism Lower Third.moti",
+    ".../Titles.localized/Simple.localized/Reveal.localized/Reveal.moti",
+    ".../Titles.localized/Simple.localized/Reveal Lower Third.localized/Reveal Lower Third.moti"
+  ]
+}

@@ -1,0 +1,113 @@
+<?xml version="1.0"?><!DOCTYPE fcpxml><fcpxml version="1.14">
+  <resources>
+    <format id="fmt" frameDuration="1/30s" width="640" height="360" colorSpace="1-1-1 (Rec. 709)"/>
+    <format id="portrait" frameDuration="1/30s" width="360" height="640" colorSpace="1-1-1 (Rec. 709)"/>
+    <format id="square" frameDuration="1/30s" width="540" height="540" colorSpace="1-1-1 (Rec. 709)"/>
+    <asset id="city" name="City Grid" start="0s" duration="8s" hasVideo="1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="1" audioRate="48000" format="fmt">
+      <media-rep kind="original-media" src="Media/city_grid.mp4"/>
+    </asset>
+    <asset id="gold" name="Golden Hour" start="0s" duration="8s" hasVideo="1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="1" audioRate="48000" format="fmt">
+      <media-rep kind="original-media" src="Media/golden_hour.mp4"/>
+    </asset>
+    <asset id="signal" name="Night Signal" start="0s" duration="8s" hasVideo="1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="1" audioRate="48000" format="fmt">
+      <media-rep kind="original-media" src="Media/night_signal.mp4"/>
+    </asset>
+    <effect id="cross" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265"/>
+    <effect id="color-adjustments" name="Color Adjustments" uid="FxPlug:7E2022A5-202B-4EEB-A311-AC2B585D01B0"/>
+    <effect id="basic" name="Basic Title" uid=".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti"/>
+  </resources>
+
+  <library name="Bladeworks Studio QA">
+    <event name="Launch Cuts">
+      <project name="Launch Reel" uid="qa-launch-main">
+        <sequence format="fmt" duration="11s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine><asset-clip ref="city" name="01 City Grid" offset="0s" start="0s" duration="5s" audioRole="dialogue">
+
+            <adjust-conform type="none"/><timeMap frameSampling="floor" preservesPitch="1"><timept time="0s" value="0s" interp="linear"/><timept time="3s" value="3s" interp="linear"/><timept time="5s" value="3s" interp="linear"/></timeMap><adjust-crop mode="trim"><trim-rect left="26" right="32" top="0" bottom="0"/></adjust-crop><adjust-blend amount="0.53" mode="normal"/><filter-video ref="color-adjustments" name="Color Adjustments"><param name="Control Range" key="19" value="0 (SDR)"/><param name="Exposure" key="3" value="12"/><param name="Contrast" key="17" value="8"/><param name="Saturation" key="16" value="10"/></filter-video><title ref="basic" name="Bladeworks Studio" lane="1" offset="1/2s" duration="2s" start="0s">
+                <param name="Position" key="9999/999166631/999166633/1/100/101" value="0 -105"/>
+                <text><text-style ref="title-style">BLADEFRAME STUDIO</text-style></text>
+                <text-style-def id="title-style" name="Main"><text-style font="Helvetica" fontFace="Bold" fontSize="52" fontColor="1 1 1 1" alignment="center"/></text-style-def>
+              </title><asset-clip ref="signal" name="Night Signal" start="0s" duration="5s" lane="2" offset="67/30s"><adjust-blend amount="0.99" mode="multiply"/></asset-clip></asset-clip><asset-clip ref="signal" name="03 Night Signal" offset="5s" start="0s" duration="2s" audioRole="music">
+              <adjust-volume amount="-4dB"><param name="amount"><fadeOut type="easeOut" duration="1/2s"/></param></adjust-volume>
+            </asset-clip><asset-clip ref="gold" name="02 Golden Hour" offset="7s" start="1s" duration="4s" audioRole="dialogue">
+
+            <timeMap frameSampling="floor" preservesPitch="1"><timept time="1s" value="1s" interp="linear"/><timept time="6s" value="1s" interp="linear"/></timeMap><asset-clip ref="signal" name="Connected Signal" lane="1" offset="1s" start="2s" duration="2s" audioRole="effects">
+                <adjust-transform position="17 8" scale="0.44 0.44" rotation="-5" anchor="0 0"/>
+                <adjust-blend amount="0.86" mode="normal"><fadeIn type="easeIn" duration="1/3s"/><fadeOut type="easeOut" duration="1/3s"/></adjust-blend>
+                <adjust-crop mode="trim"><trim-rect left="7" top="8" right="7" bottom="8"/></adjust-crop>
+              </asset-clip></asset-clip></spine>
+        </sequence>
+      </project>
+
+      <project name="Rhythm and Gaps" uid="qa-rhythm">
+        <sequence format="fmt" duration="7s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine>
+            <asset-clip ref="signal" name="Signal Open" offset="0s" start="0s" duration="2s" audioRole="effects"/>
+            <gap name="Intentional Black" offset="2s" start="0s" duration="1s">
+              <title ref="basic" name="Breathe" lane="1" offset="2s" duration="1s">
+                <text><text-style ref="gap-style">BREATHE</text-style></text>
+                <text-style-def id="gap-style"><text-style font="Helvetica" fontFace="Bold" fontSize="42" fontColor="0.4 0.85 1 1" alignment="center"/></text-style-def>
+              </title>
+            </gap>
+            <asset-clip ref="city" name="City Return" offset="3s" start="2s" duration="2s" audioRole="dialogue">
+              <adjust-transform position="-8 0" scale="1.12 1.12"/>
+            </asset-clip>
+            <asset-clip ref="gold" name="Gold Close" offset="5s" start="4s" duration="2s" audioRole="music">
+              <adjust-volume amount="-7dB"><param name="amount"><fadeIn type="linear" duration="1/2s"/></param></adjust-volume>
+            </asset-clip>
+          </spine>
+        </sequence>
+      </project>
+    </event>
+
+    <event name="Social Variants">
+      <project name="Launch Reel" uid="qa-launch-alt">
+        <sequence format="fmt" duration="6s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine><asset-clip ref="city" name="Fast Finish" offset="0s" start="3s" duration="3s" audioRole="effects">
+              <adjust-crop mode="crop"><crop-rect left="10" top="4" right="10" bottom="4"/></adjust-crop>
+            </asset-clip><asset-clip ref="gold" name="Duplicate Name Variant" offset="3s" start="0s" duration="3s" audioRole="dialogue">
+
+
+            <title ref="basic" name="Alternate Project" lane="1" offset="1/2s" duration="3/2s" start="0s">
+                <text><text-style ref="alt-style">SAME NAME, DIFFERENT PROJECT</text-style></text>
+                <text-style-def id="alt-style" name="Main"><text-style font="Helvetica" fontFace="Bold" fontSize="36" fontColor="1 0.93 0.35 1" alignment="center"/></text-style-def>
+              </title></asset-clip></spine>
+        </sequence>
+      </project>
+
+      <project name="Audio Mix" uid="qa-audio-mix">
+        <sequence format="fmt" duration="6s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine>
+            <asset-clip ref="city" name="Picture and Dialogue" offset="0s" start="0s" duration="6s" audioRole="dialogue">
+              <adjust-volume amount="-5dB"><param name="amount"><fadeIn type="linear" duration="1s"/><fadeOut type="easeOut" duration="1s"/></param></adjust-volume>
+              <audio ref="gold" name="Connected Music" lane="-1" offset="0s" start="1s" duration="6s" role="music">
+                <adjust-volume amount="-12dB"><param name="amount"><fadeIn type="easeIn" duration="1s"/><fadeOut type="easeOut" duration="1s"/></param></adjust-volume>
+              </audio>
+            </asset-clip>
+          </spine>
+        </sequence>
+      </project>
+    </event>
+
+    <event name="Format Checks">
+      <project name="Portrait 9:16" uid="qa-format-portrait">
+        <sequence format="portrait" duration="4s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine>
+            <asset-clip ref="city" name="Portrait Fill" offset="0s" start="0s" duration="4s" audioRole="dialogue">
+              <adjust-conform type="fill"/>
+            </asset-clip>
+          </spine>
+        </sequence>
+      </project>
+      <project name="Square 1:1" uid="qa-format-square">
+        <sequence format="square" duration="4s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine>
+            <asset-clip ref="gold" name="Square Fit" offset="0s" start="1s" duration="4s" audioRole="music">
+              <adjust-conform type="fit"/>
+            </asset-clip>
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>

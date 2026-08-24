@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.14">
+  <resources>
+    <format id="portrait" frameDuration="1/30s" width="360" height="640" colorSpace="1-1-1 (Rec. 709)"/>
+    <format id="source" frameDuration="1/30s" width="640" height="360" colorSpace="1-1-1 (Rec. 709)"/>
+    <asset id="city" name="City Grid" start="0s" duration="8s" hasVideo="1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="1" audioRate="48000" format="source">
+      <media-rep kind="original-media" src="Media/city_grid.mp4"/>
+    </asset>
+    <asset id="gold" name="Golden Hour" start="0s" duration="8s" hasVideo="1" hasAudio="1" videoSources="1" audioSources="1" audioChannels="1" audioRate="48000" format="source">
+      <media-rep kind="original-media" src="Media/golden_hour.mp4"/>
+    </asset>
+    <effect id="basic" name="Basic Title" uid=".../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti"/>
+  </resources>
+  <library name="Vertical Campaign">
+    <event name="9 by 16">
+      <project name="Portrait Social Story" uid="qa-portrait">
+        <sequence format="portrait" duration="6s" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">
+          <spine>
+            <asset-clip ref="city" name="Portrait City" offset="0s" start="0s" duration="3s" format="source" audioRole="dialogue">
+              <adjust-conform type="fill"/>
+              <adjust-transform position="-7 0" scale="1.06 1.06"/>
+              <title ref="basic" name="Build Faster" lane="1" offset="1/2s" duration="2s">
+                <param name="Position" key="9999/999166631/999166633/1/100/101" value="0 -210"/>
+                <text><text-style ref="portrait-style-a">BUILD FASTER</text-style></text>
+                <text-style-def id="portrait-style-a"><text-style font="Helvetica" fontFace="Bold" fontSize="46" fontColor="1 1 1 1" alignment="center"/></text-style-def>
+              </title>
+            </asset-clip>
+            <asset-clip ref="gold" name="Portrait Gold" offset="3s" start="2s" duration="3s" format="source" audioRole="music">
+              <adjust-conform type="fill"/>
+              <adjust-transform position="8 0" scale="1.08 1.08"/>
+              <adjust-volume amount="-5dB"><param name="amount"><fadeOut type="easeOut" duration="2/3s"/></param></adjust-volume>
+              <title ref="basic" name="Finish Strong" lane="1" offset="7/2s" duration="2s">
+                <param name="Position" key="9999/999166631/999166633/1/100/101" value="0 210"/>
+                <text><text-style ref="portrait-style-b">FINISH STRONG</text-style></text>
+                <text-style-def id="portrait-style-b"><text-style font="Helvetica" fontFace="Bold" fontSize="42" fontColor="1 0.9 0.25 1" alignment="center"/></text-style-def>
+              </title>
+            </asset-clip>
+          </spine>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>

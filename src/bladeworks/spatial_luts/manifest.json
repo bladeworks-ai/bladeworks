@@ -1,0 +1,17 @@
+{
+  "algorithm": "rec2020_to_rec709_extended_reinhard_100nit_v1",
+  "artifacts": {
+    "rec2020_hlg_to_rec709_sdr_v1.cube": {
+      "bytes": 176979,
+      "lut_size": 17,
+      "sha256": "2db035e111c2d5b2eb70691bdd084bc7afeb973428b393fe02baa73158d4ac39"
+    },
+    "rec2020_pq_to_rec709_sdr_v1.cube": {
+      "bytes": 176978,
+      "lut_size": 17,
+      "sha256": "fae41f3655f21394725dfc50972395cb5e6125619fa6009fdcfefb5dafc0f5f3"
+    }
+  },
+  "schema_version": 1,
+  "semantic_approximation": true
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0"?><!DOCTYPE fcpxml><fcpxml version="1.14">
+<resources>
+  <format id="fmt" frameDuration="1/30s" width="160" height="90" colorSpace="1-1-1 (Rec. 709)"/>
+  <asset id="a" start="0s" duration="2s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="fmt"><media-rep kind="original-media" src="Media/a.mp4"/></asset>
+</resources>
+<library><event name="t"><project name="transform">
+<sequence format="fmt" duration="1s"><spine>
+  <asset-clip ref="a" offset="0s" start="0s" duration="1s" audioRole="dialogue">
+    <adjust-transform position="14 -6" scale="0.5 0.5" rotation="-9" anchor="4 3"/>
+  </asset-clip>
+</spine></sequence></project></event></library></fcpxml>

@@ -1,0 +1,13 @@
+<?xml version="1.0"?><!DOCTYPE fcpxml><fcpxml version="1.14">
+<resources>
+  <format id="fmt" frameDuration="1/30s" width="160" height="90" colorSpace="1-1-1 (Rec. 709)"/>
+  <asset id="a" start="0s" duration="2s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="fmt"><media-rep kind="original-media" src="Media/a.mp4"/></asset>
+  <asset id="b" start="0s" duration="2s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="fmt"><media-rep kind="original-media" src="Media/b.mp4"/></asset>
+  <effect id="xd" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265"/>
+</resources>
+<library><event name="t"><project name="crop_or_transition">
+<sequence format="fmt" duration="2s"><spine>
+  <asset-clip ref="a" offset="0s" start="0s" duration="1s" audioRole="dialogue"/>
+  <transition name="Cross Dissolve" offset="1/2s" duration="1s"><filter-video ref="xd" name="Cross Dissolve"/></transition>
+  <asset-clip ref="b" offset="1s" start="1/2s" duration="1s" audioRole="dialogue"/>
+</spine></sequence></project></event></library></fcpxml>

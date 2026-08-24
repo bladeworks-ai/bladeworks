@@ -1,0 +1,4 @@
+# These tiny .fcpxmld sanity fixtures intentionally COMMIT their media so the
+# bundles are self-contained. Override the repo-root `*.mp4` ignore for the
+# committed fixture media (a few KB each, 160x90 / ~2s).
+!**/Media/*.mp4
