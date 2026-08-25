@@ -25,7 +25,7 @@
 
             <adjust-conform type="none"/><timeMap frameSampling="floor" preservesPitch="1"><timept time="0s" value="0s" interp="linear"/><timept time="3s" value="3s" interp="linear"/><timept time="5s" value="3s" interp="linear"/></timeMap><adjust-crop mode="trim"><trim-rect left="26" right="32" top="0" bottom="0"/></adjust-crop><adjust-blend amount="0.53" mode="normal"/><filter-video ref="color-adjustments" name="Color Adjustments"><param name="Control Range" key="19" value="0 (SDR)"/><param name="Exposure" key="3" value="12"/><param name="Contrast" key="17" value="8"/><param name="Saturation" key="16" value="10"/></filter-video><title ref="basic" name="Bladeworks Studio" lane="1" offset="1/2s" duration="2s" start="0s">
                 <param name="Position" key="9999/999166631/999166633/1/100/101" value="0 -105"/>
-                <text><text-style ref="title-style">BLADEFRAME STUDIO</text-style></text>
+                <text><text-style ref="title-style">BLADEWORKS STUDIO</text-style></text>
                 <text-style-def id="title-style" name="Main"><text-style font="Helvetica" fontFace="Bold" fontSize="52" fontColor="1 1 1 1" alignment="center"/></text-style-def>
               </title><asset-clip ref="signal" name="Night Signal" start="0s" duration="5s" lane="2" offset="67/30s"><adjust-blend amount="0.99" mode="multiply"/></asset-clip></asset-clip><asset-clip ref="signal" name="03 Night Signal" offset="5s" start="0s" duration="2s" audioRole="music">
               <adjust-volume amount="-4dB"><param name="amount"><fadeOut type="easeOut" duration="1/2s"/></param></adjust-volume>

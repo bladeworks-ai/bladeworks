@@ -213,6 +213,11 @@ button, [draggable="true"] { -webkit-user-drag: element; }
 .project-tree-row .icon { width: 11px; height: 11px; }
 .project-tree-row span { overflow: hidden; text-overflow: ellipsis; }
 .project-tree-row.selected-project { color: #fff; background: #3d3d3d; }
+/* Projects Bladeworks could not compile stay listed but greyed; the row title
+   carries the compile error and a click explains instead of opening. */
+.project-tree-row.unopenable { color: #5c5c5c; cursor: not-allowed; }
+.project-tree-row.unopenable:hover { background: transparent; }
+.project-tree-row.unopenable .icon { opacity: 0.45; }
 .library-bottom-bar { height: 25px; display: flex; align-items: center; gap: 7px; padding: 0 5px; background: #202020; border-top: 1px solid #090909; color: #707070; font-size: 9px; }
 .small-plus-button { width: 20px; height: 20px; display: grid; place-items: center; color: #bbb; cursor: pointer; }
 .small-plus-button:hover:not(:disabled) { color: white; }
@@ -347,6 +352,7 @@ button, [draggable="true"] { -webkit-user-drag: element; }
 .transport-left,.transport-center,.transport-right{display:flex;align-items:center;gap:3px}.transport-center{justify-content:center}.transport-right{justify-content:flex-end}.transport-button{width:24px;height:22px;display:grid;place-items:center;color:#8d8d8d;border-radius:3px;cursor:pointer}.transport-button:hover,.transport-button.active{background:#303030;color:white}.transport-button.play{color:#c7c7c7}.transport-button .icon{width:13px}.timecode-readout{height:22px;min-width:96px;display:flex;align-items:center;justify-content:center;color:#787878;font-size:18px;font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
 
 .project-browser-card { cursor:default; }
+.project-browser-card.unopenable { opacity:0.4; cursor:not-allowed; }
 .project-browser-thumb { display:flex; align-items:flex-end; padding:7px; background:linear-gradient(145deg,#25282d,#111317 72%); border-color:#34383e; }
 .project-browser-icon { position:absolute; left:7px; top:6px; color:#b6a8df; }
 .project-browser-icon .icon { width:17px; height:17px; }

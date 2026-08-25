@@ -174,59 +174,63 @@ def execute_render(
 ) -> RenderResult:
     """Render with the standalone package's single supported backend."""
 
-    if backend != "tensor":
-        raise RenderCapabilityError("standalone Bladeworks supports only the tensor backend")
-    if cpu_segmentation is not None or shared_planning is not None:
-        raise RenderCapabilityError("CPU segmentation and Vulkan planning are not part of Bladeworks")
-    if output_profile not in {"delivery", "delivery_alpha"}:
-        raise RenderCapabilityError(f"unsupported Bladeworks output profile {output_profile!r}")
-
     output_path = Path(output_path).expanduser().resolve()
     report_path = Path(report_path).expanduser().resolve() if report_path else output_path.with_suffix(".compatibility.json")
     manifest_path = Path(manifest_path).expanduser().resolve() if manifest_path else output_path.with_suffix(".manifest.json")
-    report.write(report_path)
-    if strict and report.has_strict_failures:
-        raise FCPXMLCompileError("--strict rejected approximated or omitted constructs; see compatibility report")
-
-    ffprobe = shutil.which("ffprobe")
-    if ffprobe is None:
-        raise RenderCapabilityError("ffprobe is required to resolve source audio")
-    audio_resolution = (
-        video_only_silence_resolution(document)
-        if video_only
-        else resolve_audio_delivery(document, ffprobe=ffprobe, report=report)
-    )
-    if video_only and document.audio is not None:
-        report.add(
-            outcome="omitted",
-            portable_status="unsupported",
-            fcpxml_path="fcpxml/project/sequence",
-            construct="source audio in video-only render",
-            timeline_start=document.tc_start,
-            timeline_duration=document.duration,
-            disposition="the caller requested video-only output; source audio was omitted",
-        )
-    report.write(report_path)
-    if strict and report.has_strict_failures:
-        raise FCPXMLCompileError("--strict rejected approximated or omitted constructs; see compatibility report")
-
-    if emit_plan_path is not None:
-        plan_path = Path(emit_plan_path).expanduser().resolve()
-        plan_path.parent.mkdir(parents=True, exist_ok=True)
-        plan_path.write_text(json.dumps(dataclass_json(document), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-    codec = "prores_ks" if output_profile == "delivery_alpha" else "libx264"
-    pixel_policy = "alpha" if output_profile == "delivery_alpha" else "opaque"
-    preset = encoder_preset or "medium"
-    callback = progress
-    if show_progress and callback is None:
-        from tqdm.auto import tqdm
-
-        bar = tqdm(total=document.frame_count, unit="frame")
-        callback = lambda completed, total: bar.update(completed - bar.n)
-    else:
-        bar = None
+    bar = None
     try:
+        if backend != "tensor":
+            raise RenderCapabilityError("standalone Bladeworks supports only the tensor backend")
+        if cpu_segmentation is not None or shared_planning is not None:
+            raise RenderCapabilityError("CPU segmentation and Vulkan planning are not part of Bladeworks")
+        if render_profile != "reference":
+            raise RenderCapabilityError(
+                f"standalone Bladeworks supports only the reference render profile, not {render_profile!r}"
+            )
+        if output_profile not in {"delivery", "delivery_alpha"}:
+            raise RenderCapabilityError(f"unsupported Bladeworks output profile {output_profile!r}")
+
+        report.write(report_path)
+        if strict and report.has_strict_failures:
+            raise FCPXMLCompileError("--strict rejected approximated or omitted constructs; see compatibility report")
+
+        ffprobe = shutil.which("ffprobe")
+        if ffprobe is None:
+            raise RenderCapabilityError("ffprobe is required to resolve source audio")
+        audio_resolution = (
+            video_only_silence_resolution(document)
+            if video_only
+            else resolve_audio_delivery(document, ffprobe=ffprobe, report=report)
+        )
+        if video_only and document.audio is not None:
+            report.add(
+                outcome="omitted",
+                portable_status="unsupported",
+                fcpxml_path="fcpxml/project/sequence",
+                construct="source audio in video-only render",
+                timeline_start=document.tc_start,
+                timeline_duration=document.duration,
+                disposition="the caller requested video-only output; source audio was omitted",
+            )
+        report.write(report_path)
+        if strict and report.has_strict_failures:
+            raise FCPXMLCompileError("--strict rejected approximated or omitted constructs; see compatibility report")
+
+        if emit_plan_path is not None:
+            plan_path = Path(emit_plan_path).expanduser().resolve()
+            plan_path.parent.mkdir(parents=True, exist_ok=True)
+            plan_path.write_text(json.dumps(dataclass_json(document), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        codec = "prores_ks" if output_profile == "delivery_alpha" else "libx264"
+        pixel_policy = "alpha" if output_profile == "delivery_alpha" else "opaque"
+        preset = encoder_preset or "medium"
+        callback = progress
+        if show_progress and callback is None:
+            from tqdm.auto import tqdm
+
+            bar = tqdm(total=document.frame_count, unit="frame")
+            callback = lambda completed, total: bar.update(completed - bar.n)
+
         with tempfile.TemporaryDirectory(prefix="bladeworks-raster-") as temporary:
             document, rasters = _prepare_runtime_rasters(document, report, Path(temporary))
             report.write(report_path)

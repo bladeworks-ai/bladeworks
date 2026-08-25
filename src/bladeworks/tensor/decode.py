@@ -161,9 +161,15 @@ _PIXEL_FORMATS: dict[str, tuple[int, int, int, bool, bool]] = {
     "yuva420p10le": (10, 1, 1, False, True),
     "yuva422p10le": (10, 1, 0, False, True),
     "yuva444p10le": (10, 0, 0, False, True),
+    "yuva420p12le": (12, 1, 1, False, True),
     "yuva422p12le": (12, 1, 0, False, True),
     "yuva444p12le": (12, 0, 0, False, True),
 }
+
+# Public capability surfaces consume the same positive list as plan-time and
+# decode-time validation. Keeping one exported tuple prevents Studio from
+# hiding a format the renderer already accepts.
+SUPPORTED_PIXEL_FORMATS = tuple(sorted(_PIXEL_FORMATS))
 
 
 @dataclass(frozen=True)
@@ -235,6 +241,11 @@ def resolve_source_color(
                 f"color_primaries={primaries_tag}",
             )
         hdr_transfer = "hlg" if transfer_tag == "arib-std-b67" else "pq"
+    if has_alpha and hdr_transfer is not None:
+        raise reject(
+            "source HDR alpha (unsupported)",
+            f"{subject}: {pixel_format} with {transfer_tag} alpha cannot be tone-mapped",
+        )
     if range_tag not in {"tv", "pc", "unknown", ""}:
         raise TensorRenderError(f"{subject}: unexpected color_range tag {range_tag!r}")
     full_range = format_full or range_tag == "pc"

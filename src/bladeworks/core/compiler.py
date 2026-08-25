@@ -147,8 +147,14 @@ def compile_fcpxml(
     bindings_path: Optional[Path] = None,
     bindings: Optional[Bindings] = None,
     capability_registry: Optional[CapabilityRegistry] = None,
+    media_preference: str = "original",
 ) -> CompileResult:
-    """Compile one FCPXML document without invoking FFmpeg or touching outputs."""
+    """Compile one FCPXML document without invoking FFmpeg or touching outputs.
+
+    ``media_preference`` (``"original"`` | ``"proxy"``) decides which
+    ``media-rep`` to decode when an asset carries both an original and a proxy
+    representation; it is threaded down to ``resolve_asset`` for every asset.
+    """
 
     source = parse_fcpxml(path, project=project)
     _validate_references(source)
@@ -161,9 +167,17 @@ def compile_fcpxml(
         timeline_start=source.sequence_tc_start,
         timeline_duration=source.sequence_duration,
     )
-    compiler = _Compiler(source=source, bindings=resolved_bindings, registry=registry, report=report)
+    compiler = _Compiler(
+        source=source,
+        bindings=resolved_bindings,
+        registry=registry,
+        report=report,
+        media_preference=media_preference,
+    )
     render = compiler.compile()
-    return CompileResult(source=source, render=render, report=report)
+    # ``compiler.source`` may carry a frame-snapped ``sequence_duration`` (see
+    # ``_Compiler.compile``); return THAT so every consumer sees one duration.
+    return CompileResult(source=compiler.source, render=render, report=report)
 
 
 class _Compiler:
@@ -174,11 +188,13 @@ class _Compiler:
         bindings: Bindings,
         registry: CapabilityRegistry,
         report: CompatibilityReport,
+        media_preference: str = "original",
     ):
         self.source = source
         self.bindings = bindings
         self.registry = registry
         self.report = report
+        self.media_preference = media_preference
         self.clips: list[RenderClip] = []
         self.group_scopes: list[RenderClip] = []
         self.transitions: list[RenderTransition] = []
@@ -195,10 +211,43 @@ class _Compiler:
         if not sequence_format.width or not sequence_format.height:
             raise FCPXMLCompileError("sequence format requires positive width and height")
         self._canvas_context = SequenceFormatContext.from_resource(sequence_format)
-        if self.source.sequence_duration / sequence_format.frame_duration != int(
-            self.source.sequence_duration / sequence_format.frame_duration
-        ):
-            raise FCPXMLCompileError("sequence duration is not aligned to its frameDuration")
+        # A sequence's total duration is normally an exact whole number of
+        # frames. Real Final Cut exports assembled from mixed-rate sources can
+        # land BETWEEN frame boundaries on the sequence's own rational timebase
+        # -- FCP tolerates that at the sequence level. Rather than reject the
+        # whole project, snap the total DOWN to the last whole frame (dropping
+        # the trailing sub-frame remainder) and record it as an approximation,
+        # so the divergence stays loud (and trips ``--strict``) instead of
+        # silently rendering a ragged tail. ``RenderDocument.frame_count`` is
+        # then exact because ``sequence_duration`` is frame-aligned.
+        sequence_duration = self.source.sequence_duration
+        frames = sequence_duration / sequence_format.frame_duration
+        if frames.denominator != 1:
+            whole_frames = frames.numerator // frames.denominator
+            snapped_duration = whole_frames * sequence_format.frame_duration
+            dropped = sequence_duration - snapped_duration
+            self.report.add(
+                outcome="approximated",
+                portable_status="calibrated_portable",
+                fcpxml_path="sequence",
+                construct="sequence duration not frame-aligned",
+                disposition=(
+                    f"sequence duration {float(sequence_duration):.6f}s is "
+                    f"{float(frames):.4f} frames at "
+                    f"{float(sequence_format.frame_duration):.6f}s/frame; snapped down to "
+                    f"{whole_frames} whole frames ({float(snapped_duration):.6f}s), "
+                    f"dropping a {float(dropped):.6f}s sub-frame tail"
+                ),
+                timeline_duration=dropped,
+            )
+            sequence_duration = snapped_duration
+            # Every downstream plan (story root, independent audio schedule,
+            # compatibility report) is built from ``self.source.sequence_duration``,
+            # so the snapped value must live THERE too -- otherwise the audio
+            # bed would be rendered/validated a sub-frame longer than the video
+            # (``tensor/audio_delivery.py`` reads ``document.audio.sequence_duration``).
+            self.source = replace(self.source, sequence_duration=snapped_duration)
+            self.report.timeline_duration = snapped_duration
 
         if self.source.fcpxml_version != "1.14":
             self.report.add(
@@ -288,7 +337,7 @@ class _Compiler:
             width=sequence_format.width,
             height=sequence_format.height,
             frame_duration=sequence_format.frame_duration,
-            duration=self.source.sequence_duration,
+            duration=sequence_duration,
             tc_start=self.source.sequence_tc_start,
             clips=clips,
             transitions=tuple(self.transitions),
@@ -378,7 +427,9 @@ class _Compiler:
                 raise FCPXMLCompileError(
                     f"audio item {item.path} references unknown asset {item.asset_id!r}"
                 )
-            media_path, binding = resolve_asset(asset, self.bindings, self.source.media_base_dir)
+            media_path, binding = resolve_asset(
+                asset, self.bindings, self.source.media_base_dir, prefer=self.media_preference
+            )
             if media_path is None or binding is None or not media_path.is_file():
                 missing_asset_ids.add(item.asset_id)
                 locators = unresolved_asset_locators(
@@ -1110,7 +1161,9 @@ class _Compiler:
                 asset_id = asset.id
                 asset_uid = asset.uid
                 alpha_handling = asset.alpha_handling
-                media_path, used_binding = resolve_asset(asset, self.bindings, self.source.media_base_dir)
+                media_path, used_binding = resolve_asset(
+                    asset, self.bindings, self.source.media_base_dir, prefer=self.media_preference
+                )
                 has_video = asset.has_video and node.kind != "audio" and node.src_enable != "audio"
                 has_audio = asset.has_audio and node.kind != "video" and node.src_enable != "video"
                 is_still = asset.has_video and (asset.duration is None or asset.duration <= 0)

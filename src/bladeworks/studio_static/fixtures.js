@@ -340,6 +340,7 @@ function summary(projectSnapshot) {
         name: projectSnapshot.name,
         duration: projectDuration(projectSnapshot),
         proposal: projectSnapshot.proposal,
+        openError: null,
     };
 }
 export function createFixtureBootstrap() {

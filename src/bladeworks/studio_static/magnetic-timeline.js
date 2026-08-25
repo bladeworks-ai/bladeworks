@@ -216,7 +216,14 @@ export function normalizeProject(project) {
         if (!anchor) {
             continue;
         }
-        const anchorOffset = clamp(clip.anchorOffset, 0, anchor.duration);
+        // A connected clip stays anchored to its parent but may sit BEYOND the
+        // parent's out-point -- Final Cut allows this, and the Python compiler
+        // (the render oracle) never clamps it. Clamping to anchor.duration
+        // collapsed every caption whose offset exceeded the (often short) anchor
+        // clip onto the anchor's end, piling them on one timeline x. Only the
+        // non-negative floor is kept, so a connected clip never renders before
+        // t=0; the upper bound is removed to match the render.
+        const anchorOffset = Math.max(0, clip.anchorOffset);
         if (!Number.isFinite(clip.duration) || clip.duration <= 0) {
             throw new Error(`Connected clip ${clip.id} has a non-positive duration.`);
         }

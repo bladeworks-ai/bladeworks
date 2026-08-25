@@ -68,8 +68,8 @@ import torch
 from ..core.cohort_effects import cohort_effect_filters
 from ..core.model import ResolvedEffect
 from .color import code_to_premultiplied, premultiplied_to_code
-from .effects import ApplyContext, EffectPort, LowerContext, register
-from .expr import ExpressionError, geq_rgba, parse
+from .effects import OVERSCAN_EXTEND, OVERSCAN_SPLICE, ApplyContext, EffectPort, LowerContext, geq_rgba_canvas, register
+from .expr import ExpressionError, parse
 from .support import reject
 
 
@@ -89,6 +89,8 @@ GEQ_HANDLERS: Final[tuple[str, ...]] = (
     "cohort_fisheye",
     "cohort_droplet",
     "cohort_crop_feather",
+    "cohort_visual_unshuffle_alpha_crop",
+    "cohort_visual_unshuffle_polygon_crop",
     "cohort_vignette_mask",
     "cohort_kaleidoscope",
     "cohort_perspective_tile",
@@ -154,13 +156,17 @@ def _lower_geq(effect: ResolvedEffect, ctx: LowerContext) -> GeqPayload:
 
 
 def _apply_geq(payload: GeqPayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
+    # Evaluated in CLIP-CANVAS coordinates (``effects.geq_rgba_canvas``): on an overscan
+    # surface the centre / frame-relative expressions keep their canvas geometry and continue
+    # outward, sampling the real overscan.  Their taps near the canvas edge read real pixels
+    # instead of the reference's clamped edge, so the canvas region comes from the crop run:
+    # ``"splice"``.
     code = _rounded_code(canvas)
-    out = geq_rgba(payload.expressions(), code, frame_number=ctx.frame, time_seconds=ctx.seconds)
-    return code_to_premultiplied(out)
+    return code_to_premultiplied(geq_rgba_canvas(payload.expressions(), code, ctx))
 
 
 for _handler in GEQ_HANDLERS:
-    register(EffectPort(handler=_handler, lower=_lower_geq, apply=_apply_geq))
+    register(EffectPort(handler=_handler, lower=_lower_geq, apply=_apply_geq, overscan=OVERSCAN_SPLICE))
 
 
 # =============================================================================
@@ -334,4 +340,4 @@ def _apply_vibrancy(payload: VibrancyPayload, canvas: torch.Tensor, ctx: ApplyCo
     return code_to_premultiplied(out.to(canvas.dtype))
 
 
-register(EffectPort(handler="cohort_vibrancy", lower=_lower_vibrancy, apply=_apply_vibrancy))
+register(EffectPort(handler="cohort_vibrancy", lower=_lower_vibrancy, apply=_apply_vibrancy, overscan=OVERSCAN_EXTEND))

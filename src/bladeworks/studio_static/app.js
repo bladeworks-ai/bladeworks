@@ -579,9 +579,38 @@ class BladeworksEditorApp {
         this.renderAll();
         this.fitTimelineAfterProjectOpen();
         this.warnMediaInventoryFailures();
+        this.warnUnopenableProjects();
         await this.attachPreview();
         this.syncPreview();
         this.startHealthMonitor();
+    }
+    /** Find one Project's sidebar summary (carries the catalog `openError`). */
+    projectSummary(projectId) {
+        for (const library of this.libraries) {
+            for (const event of library.events) {
+                const project = event.projects.find((candidate) => candidate.id === projectId);
+                if (project) {
+                    return project;
+                }
+            }
+        }
+        return null;
+    }
+    /**
+     * Tell the user at startup which Projects Bladeworks could not compile.
+     *
+     * Why this exists: the library opened anyway (the runtime skipped them when
+     * choosing the active Project), so without this toast the only hint would be
+     * a greyed row in the sidebar. The row's tooltip carries the full error.
+     */
+    warnUnopenableProjects() {
+        const failed = this.libraries.flatMap((library) => library.events.flatMap((event) => event.projects.filter((project) => project.openError !== null)));
+        if (!failed.length) {
+            return;
+        }
+        const names = failed.map((project) => `"${project.name}"`).join(", ");
+        const count = failed.length === 1 ? "1 Project" : `${failed.length} Projects`;
+        this.showToast(`${count} could not be compiled and cannot be opened: ${names}. Hover the greyed entry in the Libraries sidebar for the reason.`, "error");
     }
     /**
      * Poll the backend's health so the topbar status light reflects reality
@@ -6095,6 +6124,15 @@ class BladeworksEditorApp {
         if (!projectId || (projectId === this.state.selectedProjectId && this.runtime.mode === "mock")) {
             return;
         }
+        // A greyed (unopenable) row keeps its click action so the user gets the
+        // compile error instead of a silent no-op or a backend 404. The refusal
+        // is left to `runtime.selectProject`, which first refreshes the library
+        // (and its Project catalog) at the boundary and THEN checks openability:
+        // consulting the sidebar's own `openError` here would answer from a
+        // catalog that can be stale -- a Project fixed on disk since the last
+        // boundary (a Final Cut re-export) would stay refused until some other
+        // action refreshed it. The failure surfaces as the "Project load failed"
+        // toast below.
         const seq = ++this.projectSelectionSeq;
         try {
             this.preview?.pause();

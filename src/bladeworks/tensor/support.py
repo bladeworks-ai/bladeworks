@@ -85,6 +85,7 @@ SUPPORT: Final[Mapping[str, tuple[Status, str]]] = {
     "source colour matrix (unsupported)": ("rejected", "X10"),
     "source colour transfer (HLG / PQ)": ("supported", "X10 HDR-to-SDR LUT"),
     "source HDR metadata (malformed)": ("rejected", "X10 HDR-to-SDR LUT"),
+    "source HDR alpha (unsupported)": ("rejected", "X10 HDR-to-SDR LUT"),
     # ---- xyzt geometry -----------------------------------------------------
     "conform fit/fill/none": ("supported", ""),
     "conform (other)": ("rejected", "X1"),

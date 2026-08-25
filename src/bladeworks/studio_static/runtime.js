@@ -244,7 +244,7 @@ export class MockEditorRuntime {
                     ...candidate,
                     projects: [
                         ...candidate.projects,
-                        { id, eventId, name, duration: 0, proposal: null },
+                        { id, eventId, name, duration: 0, proposal: null, openError: null },
                     ],
                 }
                 : candidate),
@@ -356,12 +356,44 @@ export class MockEditorRuntime {
     }
 }
 /**
+ * Pick the Project the editor should open, honouring the backend catalog.
+ *
+ * Step by step:
+ * 1. If the caller has a preferred Project, it exists, and it is openable,
+ *    keep it (a user's current selection survives a reload).
+ * 2. Otherwise take the first openable Project in document order.
+ * 3. If nothing is openable, fail loudly: an empty library and an
+ *    all-unopenable library are both errors, the latter naming every compile
+ *    error so the user can fix the FCPXML.
+ *
+ * `openError` returns `null` for an openable Project and the compile error
+ * text otherwise. Explicit user selection of an unopenable Project is NOT
+ * routed through here: `selectProject` must refuse, not silently fall back.
+ *
+ * Main callers: LocalhostEditorRuntime.bootstrap, moveHistory (undo/redo), and
+ * refreshSourceAtBoundary when the active Project disappears.
+ */
+export function chooseOpenableProject(projectIds, openError, preferred) {
+    if (preferred !== null && projectIds.includes(preferred) && openError(preferred) === null) {
+        return preferred;
+    }
+    const first = projectIds.find((projectId) => openError(projectId) === null);
+    if (first !== undefined) {
+        return first;
+    }
+    if (projectIds.length === 0) {
+        throw new Error("The opened FCPXML library does not contain a Project.");
+    }
+    const details = projectIds.map((projectId) => `${projectId}: ${openError(projectId)}`).join("; ");
+    throw new Error(`No Project in this library can be opened. ${details}`);
+}
+/**
  * Which live-media transport the localhost editor uses.
  *
  * "rawframe" is the default: uncompressed frames over a WebSocket, painted to a
  * canvas (~50 ms glass-to-glass on loopback). "webrtc" is the quarantined
  * legacy path (aiortc encode + browser jitter buffer, ~1 s latency) and also
- * needs the server started with BLADEFRAME_PREVIEW_WEBRTC=1.
+ * needs the server started with BLADEWORKS_PREVIEW_WEBRTC=1.
  */
 const PREVIEW_TRANSPORT = "rawframe";
 export function previewResolutionForQuality(quality) {
@@ -1010,6 +1042,11 @@ export class LocalhostEditorRuntime {
     // succeed when this list is non-empty; the UI warns loudly instead.
     mediaFailures = [];
     access = new Map();
+    // Backend compile catalog for the loaded library version, keyed by
+    // projectRef. An entry with `openable: false` is a Project Bladeworks could
+    // not compile at open time; it stays in the tree but must never be selected.
+    // Always version-scoped: rebuilt from every status payload the server sends.
+    projectCatalog = new Map();
     history = { canUndo: false, canRedo: false, index: 0, length: 1 };
     mutationTail = Promise.resolve();
     capabilityData = null;
@@ -1026,16 +1063,27 @@ export class LocalhostEditorRuntime {
     async bootstrap() {
         await this.loadSource();
         await this.loadMedia(false);
-        const bootstrap = this.requireWorkspace().bootstrap;
-        const selected = bootstrap.projects[bootstrap.activeProjectId]
-            ? bootstrap.activeProjectId
-            : Object.keys(bootstrap.projects)[0];
-        if (!selected) {
-            throw new Error("The opened FCPXML library does not contain a Project.");
-        }
+        // The codec's activeProjectId is simply the first Project in document
+        // order; it may be the one Bladeworks could not compile, so the choice
+        // goes through the catalog before the first compatibility request.
+        const selected = this.chooseProject(this.requireWorkspace().bootstrap.activeProjectId);
         this.activeProjectId = selected;
         await this.loadCompatibility(selected);
         return this.assembledBootstrap(selected);
+    }
+    /**
+     * Compile error for one Project, or `null` when it can be opened.
+     *
+     * A Project missing from the catalog is treated as openable: the catalog is
+     * an early, user-friendly signal, and the backend still rejects loudly
+     * (404/422) if the Project truly cannot be served.
+     */
+    projectOpenError(projectId) {
+        const entry = this.projectCatalog.get(projectId);
+        if (!entry || entry.openable) {
+            return null;
+        }
+        return entry.error ?? "Bladeworks could not compile this Project.";
     }
     /** Load the renderer-owned authoring surface once for this server process. */
     async capabilities() {
@@ -1075,6 +1123,13 @@ export class LocalhostEditorRuntime {
         const project = this.requireWorkspace().bootstrap.projects[projectId];
         if (!project) {
             throw new Error(`Project ${projectId} does not exist in the current library version.`);
+        }
+        // An explicit selection of an unopenable Project is refused with the
+        // compile error rather than forwarded to the backend, which would answer
+        // 404 project_not_found and leave the user guessing why.
+        const openError = this.projectOpenError(projectId);
+        if (openError !== null) {
+            throw new Error(`Project "${project.name}" cannot be opened: ${openError}`);
         }
         if (seq === this.selectionSeq) {
             this.activeProjectId = projectId;
@@ -1349,7 +1404,7 @@ export class LocalhostEditorRuntime {
         url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
         return url.toString();
     }
-    /** Quarantined legacy transport. Requires BLADEFRAME_PREVIEW_WEBRTC=1. */
+    /** Quarantined legacy transport. Requires BLADEWORKS_PREVIEW_WEBRTC=1. */
     async attachWebRTCPreview(canvas, video, onTimeUpdate, onPlayingChange, quality, onRuntimeEvent) {
         const identity = this.previewIdentity();
         const peer = new RTCPeerConnection();
@@ -1464,15 +1519,18 @@ export class LocalhostEditorRuntime {
         this.adoptStatus(await response.json());
         await this.loadSource();
         const workspace = this.requireWorkspace();
-        const selected = workspace.bootstrap.projects[projectId]
-            ? projectId
-            : Object.keys(workspace.bootstrap.projects)[0];
-        if (!selected) {
-            throw new Error("Restored library does not contain a Project.");
-        }
+        const selected = this.chooseProject(projectId);
         this.activeProjectId = selected;
         await this.loadCompatibility(selected);
         return cloneValue(workspace.bootstrap.projects[selected]);
+    }
+    /**
+     * Resolve which Project to make active, preferring `preferred` when it is
+     * present and openable and otherwise the first openable Project in document
+     * order. Throws when no Project can be opened. See chooseOpenableProject.
+     */
+    chooseProject(preferred) {
+        return chooseOpenableProject(Object.keys(this.requireWorkspace().bootstrap.projects), (projectId) => this.projectOpenError(projectId), preferred);
     }
     async putWorkspace(workspace, expectedVersion) {
         const expectedContentVersion = await sha256Version(workspace.xml);
@@ -1498,32 +1556,61 @@ export class LocalhostEditorRuntime {
         this.adoptWorkspaceAccess(workspace);
         this.adoptStatus(status);
     }
+    /**
+     * Load the complete library: the exact XML bytes plus the JSON status that
+     * carries the per-Project catalog.
+     *
+     * Step by step:
+     * 1. GET the XML; its ETag is the source version the browser now edits.
+     * 2. GET `/api/editor/source/status` for history position and the catalog
+     *    (`projects[].openable` / `error`), which the XML route cannot carry in
+     *    headers.
+     * 3. The two responses must describe the same disk bytes. If the file
+     *    changed between them, start over; after a few attempts give up loudly
+     *    rather than pairing a catalog with the wrong document.
+     *
+     * Main callers: bootstrap, every mutation's pre-flight reload, undo/redo,
+     * and refreshSourceAtBoundary.
+     */
     async loadSource() {
-        const response = await requireOk(await this.request("/api/editor/source"), "Source load");
-        const xml = await response.text();
-        const workspace = parseFCPXMLLibrary(xml);
-        this.workspace = workspace;
-        this.sourceVersion = etagVersion(response);
-        this.adoptWorkspaceAccess(workspace);
-        const historyIndex = Number(response.headers.get("X-Bladeworks-History-Index"));
-        const historyLength = Number(response.headers.get("X-Bladeworks-History-Length"));
-        if (Number.isInteger(historyIndex) && Number.isInteger(historyLength) && historyLength > 0) {
-            this.adoptStatus({
-                diskVersion: this.sourceVersion,
-                loadedVersion: this.sourceVersion,
-                compileStatus: response.headers.get("X-Bladeworks-Compile-Status") ?? "ready",
-                degraded: false,
-                historyIndex,
-                historyLength,
-            });
+        const attempts = 3;
+        for (let attempt = 1; attempt <= attempts; attempt += 1) {
+            const response = await requireOk(await this.request("/api/editor/source"), "Source load");
+            const xml = await response.text();
+            const version = etagVersion(response);
+            const status = await this.fetchSourceStatus();
+            if (status.diskVersion !== version) {
+                continue;
+            }
+            const workspace = parseFCPXMLLibrary(xml);
+            this.workspace = workspace;
+            this.sourceVersion = version;
+            this.adoptWorkspaceAccess(workspace);
+            this.adoptStatus(status);
+            return;
         }
+        throw new Error(`Info.fcpxml kept changing on disk while Studio loaded it (${attempts} attempts).`);
+    }
+    async fetchSourceStatus() {
+        const response = await requireOk(await this.request("/api/editor/source/status"), "Source status");
+        const status = await response.json();
+        if (!Array.isArray(status.projects)) {
+            throw new Error("Bladeworks source status did not include the Project catalog.");
+        }
+        return status;
     }
     async refreshSourceAtBoundary() {
         await this.mutationTail;
         const previous = this.sourceVersion;
         await this.loadSource();
-        if (previous && previous !== this.sourceVersion && this.activeProjectId && !this.requireWorkspace().bootstrap.projects[this.activeProjectId]) {
-            this.activeProjectId = Object.keys(this.requireWorkspace().bootstrap.projects)[0] ?? null;
+        if (previous && previous !== this.sourceVersion && this.activeProjectId) {
+            const projects = this.requireWorkspace().bootstrap.projects;
+            // After an external change the active Project may be gone or may no
+            // longer compile; fall to the first openable one instead of previewing
+            // a Project the backend will refuse.
+            if (!projects[this.activeProjectId] || this.projectOpenError(this.activeProjectId) !== null) {
+                this.activeProjectId = this.chooseProject(null);
+            }
         }
         if (this.activeProjectId) {
             await this.loadCompatibility(this.activeProjectId);
@@ -1572,15 +1659,48 @@ export class LocalhostEditorRuntime {
             index: status.historyIndex,
             length: status.historyLength,
         };
+        this.adoptProjectCatalog(status);
+    }
+    /**
+     * Replace the Project catalog from one status payload.
+     *
+     * The catalog describes `loadedVersion`, the last library Bladeworks
+     * compiled. When newer disk bytes failed to compile (`compileStatus`
+     * "source_invalid"), `diskVersion` moves ahead of `loadedVersion` and the
+     * catalog no longer matches the XML the browser parsed, so it is dropped;
+     * the backend's 422 on the next request remains the loud signal. A payload
+     * without `projects` (PUT/undo/redo responses from older servers) also
+     * clears it: every openability gate then defers to the backend.
+     */
+    adoptProjectCatalog(status) {
+        if (!status.projects || status.loadedVersion !== status.diskVersion) {
+            this.projectCatalog = new Map();
+            return;
+        }
+        this.projectCatalog = new Map(status.projects.map((entry) => [entry.projectRef, entry]));
     }
     assembledBootstrap(activeProjectId) {
         const bootstrap = this.requireWorkspace().bootstrap;
         const eventId = bootstrap.projects[activeProjectId]?.eventId;
         return cloneValue({
             ...bootstrap,
+            libraries: this.assembledLibraries(),
             assets: this.assembledAssets(eventId),
             activeProjectId,
         });
+    }
+    /** Library tree with each Project summary stamped with its catalog `openError`. */
+    assembledLibraries() {
+        return this.requireWorkspace().bootstrap.libraries.map((library) => ({
+            ...library,
+            events: library.events.map((event) => ({
+                ...event,
+                projects: event.projects.map((project) => ({
+                    ...project,
+                    openError: this.projectOpenError(project.id),
+                })),
+            })),
+        }));
     }
     assembledAssets(eventId) {
         const bootstrap = this.requireWorkspace().bootstrap;

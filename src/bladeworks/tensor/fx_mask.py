@@ -20,6 +20,18 @@ geometric alpha planes.  Color and luma mattes use straight encoded RGB, like
 the CPU ``format=rgba`` mask path, and the resulting matte is applied to the
 premultiplied branch.  This preserves correct fractional alpha at the mask
 edge and keeps group/leaf composition on the existing ``over`` operator.
+
+Clip canvas vs surface
+----------------------
+
+Shape and draw mattes are authored relative to the CLIP CANVAS (centre origin,
+default radius a quarter of the canvas).  The effects dispatcher may hand this
+module an overscan-preserving surface larger than that canvas
+(``effects.CanvasPlacement``); ``canvas_rect = (width, height, origin_x,
+origin_y)`` then names the canvas and every geometric matte is evaluated in
+canvas coordinates translated onto the surface, so the canvas region of the
+matte is bit-identical to a canvas-only evaluation and the matte simply
+continues outward into the overscan.  ``None`` means the tensor is the canvas.
 """
 
 from __future__ import annotations
@@ -63,6 +75,7 @@ def apply_masked_effect(
     frame: int,
     seconds: float = 0.0,
     apply_effect: Callable[[Any, torch.Tensor, int], torch.Tensor],
+    canvas_rect: Optional[tuple[int, int, int, int]] = None,
 ) -> torch.Tensor:
     """Apply a masked effect in the same order as the CPU reference.
 
@@ -97,6 +110,7 @@ def apply_masked_effect(
         seconds=source_seconds,
         coordinate_scale_x=payload.coordinate_scale_x,
         coordinate_scale_y=payload.coordinate_scale_y,
+        canvas_rect=canvas_rect,
     )
     inside = apply_effect(payload.inside, canvas, frame)
     masked_inside = inside * matte.unsqueeze(0)
@@ -111,8 +125,9 @@ def matte_for_group(
     seconds: float = 0.0,
     coordinate_scale_x: float = 1.0,
     coordinate_scale_y: float = 1.0,
+    canvas_rect: Optional[tuple[int, int, int, int]] = None,
 ) -> torch.Tensor:
-    """Return one validated combined matte as ``[H, W]`` float alpha.
+    """Return one validated combined matte as ``[H, W]`` float alpha (the surface size).
 
     Main callers:
     - ``apply_masked_effect``.
@@ -121,17 +136,21 @@ def matte_for_group(
     ``add`` is maximum, ``subtract`` removes the next matte from the current
     matte, and ``multiply`` intersects the two.  Inversion happens after the
     full ordered combination, matching the FCPXML container flag.
+    ``canvas_rect`` places the clip canvas on the surface (module doc).
     """
 
     if canvas.ndim != 3 or canvas.shape[0] != 4:
         raise ValueError(f"mask input must be [4,H,W] RGBA, got {tuple(canvas.shape)}")
     if not group.masks:
         raise ValueError("mask group must contain at least one resolved mask")
+    if canvas_rect is None:
+        canvas_rect = (int(canvas.shape[2]), int(canvas.shape[1]), 0, 0)
     result: Optional[torch.Tensor] = None
     for mask in group.masks:
         current = _mask_plane(
             mask,
             canvas,
+            canvas_rect,
             seconds=seconds,
             coordinate_scale_x=coordinate_scale_x,
             coordinate_scale_y=coordinate_scale_y,
@@ -155,18 +174,17 @@ def matte_for_group(
 def _mask_plane(
     mask: ResolvedMask,
     canvas: torch.Tensor,
+    canvas_rect: tuple[int, int, int, int],
     *,
     seconds: float,
     coordinate_scale_x: float,
     coordinate_scale_y: float,
 ) -> torch.Tensor:
-    height, width = int(canvas.shape[1]), int(canvas.shape[2])
     if mask.kind == "shape":
         return _shape_matte(
             mask,
-            height,
-            width,
             canvas,
+            canvas_rect,
             seconds=seconds,
             coordinate_scale_x=coordinate_scale_x,
             coordinate_scale_y=coordinate_scale_y,
@@ -174,9 +192,8 @@ def _mask_plane(
     if mask.kind == "draw":
         return _draw_matte(
             mask,
-            height,
-            width,
             canvas,
+            canvas_rect,
             seconds=seconds,
             coordinate_scale_x=coordinate_scale_x,
             coordinate_scale_y=coordinate_scale_y,
@@ -188,16 +205,33 @@ def _mask_plane(
     raise ValueError(f"unsupported resolved mask kind {mask.kind!r}")
 
 
+def _canvas_grid(canvas: torch.Tensor, canvas_rect: tuple[int, int, int, int]) -> tuple[torch.Tensor, torch.Tensor]:
+    """``(y, x)`` integer pixel grids over the surface, in CLIP-CANVAS coordinates.
+
+    ``x[:, i] == i + origin_x``: on the canvas itself (origin 0) this is the plain
+    ``meshgrid(arange)`` the CPU-calibrated expressions were written against, so an
+    integer origin offset leaves the canvas region's values bit-identical.
+    """
+
+    _, _, origin_x, origin_y = canvas_rect
+    y, x = torch.meshgrid(
+        torch.arange(int(canvas.shape[1]), device=canvas.device, dtype=canvas.dtype) + origin_y,
+        torch.arange(int(canvas.shape[2]), device=canvas.device, dtype=canvas.dtype) + origin_x,
+        indexing="ij",
+    )
+    return y, x
+
+
 def _shape_matte(
     mask: ResolvedMask,
-    height: int,
-    width: int,
     canvas: torch.Tensor,
+    canvas_rect: tuple[int, int, int, int],
     *,
     seconds: float,
     coordinate_scale_x: float,
     coordinate_scale_y: float,
 ) -> torch.Tensor:
+    width, height = canvas_rect[0], canvas_rect[1]
     radius_x = _parameter(mask, ("160", "radius"), 0, width * 0.25 / coordinate_scale_x, seconds=seconds) * coordinate_scale_x
     radius_y = _parameter(mask, ("160", "radius"), 1, height * 0.25 / coordinate_scale_y, seconds=seconds) * coordinate_scale_y
     position_x = _parameter(mask, ("201", "position"), 0, 0.0, seconds=seconds) * coordinate_scale_x
@@ -208,13 +242,9 @@ def _shape_matte(
     opacity = _parameter(mask, ("103", "opacity"), 0, 1.0, seconds=seconds)
     falloff = _parameter(mask, ("104", "falloff"), 0, 1.0, seconds=seconds)
 
-    # The CPU expression uses integer X/Y samples with the origin at the frame
-    # center.  Keep that convention here for calibration parity.
-    y, x = torch.meshgrid(
-        torch.arange(height, device=canvas.device, dtype=canvas.dtype),
-        torch.arange(width, device=canvas.device, dtype=canvas.dtype),
-        indexing="ij",
-    )
+    # The CPU expression uses integer X/Y samples with the origin at the CLIP
+    # CANVAS center.  Keep that convention here for calibration parity.
+    y, x = _canvas_grid(canvas, canvas_rect)
     dx = x - width / 2.0 - position_x
     dy = y - height / 2.0 + position_y
     angle = math.radians(rotation)
@@ -234,14 +264,14 @@ def _shape_matte(
 
 def _draw_matte(
     mask: ResolvedMask,
-    height: int,
-    width: int,
     canvas: torch.Tensor,
+    canvas_rect: tuple[int, int, int, int],
     *,
     seconds: float,
     coordinate_scale_x: float,
     coordinate_scale_y: float,
 ) -> torch.Tensor:
+    width, height = canvas_rect[0], canvas_rect[1]
     raw = mask.data.get("points")
     if not raw:
         raise ValueError("resolved Draw Mask has no points")
@@ -252,11 +282,7 @@ def _draw_matte(
         )
         for token in raw.split(";")
     ]
-    y, x = torch.meshgrid(
-        torch.arange(height, device=canvas.device, dtype=canvas.dtype),
-        torch.arange(width, device=canvas.device, dtype=canvas.dtype),
-        indexing="ij",
-    )
+    y, x = _canvas_grid(canvas, canvas_rect)
     local_x = x - width / 2.0
     local_y = height / 2.0 - y
     area = sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(points, (*points[1:], points[0])))

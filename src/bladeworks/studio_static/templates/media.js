@@ -150,7 +150,11 @@ export function mediaGridTemplate(assets, options) {
 }
 function projectBrowserCardTemplate(project, view, selected) {
     const previewBars = Array.from({ length: view === "list" ? 7 : 5 }, (_, index) => `<i style="--project-bar:${index}"></i>`).join("");
-    return `<article class="asset-card project-browser-card ${selected ? "selected" : ""}" data-action="select-project" data-project-id="${escapeHtml(project.id)}" tabindex="0" title="Open Project ${escapeHtml(project.name)}">
+    // Mirrors the Libraries sidebar: an uncompilable Project is greyed, carries
+    // its error as the tooltip, and still answers a click with an explanation.
+    const unopenable = project.openError !== null;
+    const title = unopenable ? `Cannot open ${project.name}: ${project.openError}` : `Open Project ${project.name}`;
+    return `<article class="asset-card project-browser-card ${selected ? "selected" : ""} ${unopenable ? "unopenable" : ""}" data-action="select-project" data-project-id="${escapeHtml(project.id)}" tabindex="0" title="${escapeHtml(title)}" aria-disabled="${unopenable}">
     <div class="asset-thumb project-browser-thumb">
       <span class="project-browser-icon">${icon("project")}</span>
       <div class="project-browser-timeline">${previewBars}</div>

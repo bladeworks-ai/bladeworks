@@ -28,7 +28,7 @@ def _webrtc_enabled() -> bool:
     so the common path never imports aiortc.
     """
 
-    return os.environ.get("BLADEFRAME_PREVIEW_WEBRTC", "").strip().lower() in {"1", "true", "yes", "on"}
+    return os.environ.get("BLADEWORKS_PREVIEW_WEBRTC", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def create_local_preview_app(

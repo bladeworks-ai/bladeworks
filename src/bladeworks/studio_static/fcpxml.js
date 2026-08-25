@@ -1533,6 +1533,9 @@ export function parseFCPXMLLibrary(xml) {
                     name: parsed.snapshot.name,
                     duration: projectDuration(parsed.snapshot),
                     proposal: null,
+                    // The codec only parses XML; renderer compile failures are stamped
+                    // on by LocalhostEditorRuntime from the backend catalog.
+                    openError: null,
                 };
             });
             return {

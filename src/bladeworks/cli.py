@@ -124,51 +124,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render_parser.add_argument("--strict", action="store_true", help="fail before FFmpeg when any construct is approximated or omitted")
     render_parser.add_argument(
-        "--render-profile",
-        choices=("reference", "fast8"),
-        default="reference",
+        "--prefer",
+        choices=("original", "proxy"),
+        default="original",
         help=(
-            "CPU pixel pipeline: reference is the calibrated 16-bit linear "
-            "evidence graph; fast8 is the 8-bit scale-first product graph "
-            "(measured ~3x faster, SSIM >= 0.99 vs reference)"
+            "which media representation to decode when an asset carries both an "
+            "original and a proxy: original (default) prefers original-media and "
+            "falls back to the first that resolves; proxy prefers proxy-media, "
+            "then original, then whatever resolves"
         ),
     )
+    _add_symlink_media_option(render_parser)
     render_parser.add_argument(
         "--encoder-preset",
         default=None,
         help="x264 preset override for delivery encodes (e.g. veryfast); default medium",
-    )
-    render_parser.add_argument(
-        "--cpu-segments",
-        action="store_true",
-        help=(
-            "render the CPU plan as independent time segments (bounded decoders "
-            "per process, segments run in parallel, then assembled); fails loudly "
-            "when the plan-authoritative CPU emitter does not accept the project"
-        ),
-    )
-    render_parser.add_argument(
-        "--segment-max-frames",
-        type=int,
-        default=None,
-        help="split segments so none exceeds this many frames (default: split only under source pressure)",
-    )
-    render_parser.add_argument(
-        "--segment-max-sources",
-        type=int,
-        default=8,
-        help="maximum distinct physical sources (decoders) opened by one segment process",
-    )
-    render_parser.add_argument(
-        "--segment-parallel",
-        type=int,
-        default=max(1, (os.cpu_count() or 2) - 1),
-        help="how many segment processes run at once",
-    )
-    render_parser.add_argument(
-        "--no-segment-narrowing",
-        action="store_true",
-        help="keep every segment source graph identical to the whole-plan emitter (decode from each clip's start)",
     )
     render_parser.add_argument(
         "--no-progress",
@@ -189,7 +159,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="destination directory (default: current directory)",
     )
 
-    subparsers.add_parser("doctor", help="check runtime prerequisites (ffprobe, torch device, versions)")
+    subparsers.add_parser("doctor", help="check runtime prerequisites (ffmpeg, ffprobe, torch device, versions)")
+
+    proxy_parser = subparsers.add_parser(
+        "proxy",
+        help="generate downscaled proxy media for each video asset and inject proxy media-reps",
+    )
+    proxy_parser.add_argument("input", type=Path, help="a .fcpxml file or a .fcpxmld bundle directory")
+    proxy_parser.add_argument(
+        "--height",
+        type=_positive_int,
+        default=480,
+        help="target for the SHORTER side of the proxy in pixels (default: 480); sources already this small are skipped",
+    )
+    proxy_parser.add_argument(
+        "--bitrate",
+        type=_positive_int,
+        default=1200,
+        help="target H.264 proxy bitrate in kbps for opaque sources (default: 1200); alpha sources use ProRes 4444",
+    )
+    proxy_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="regenerate proxies even for assets that already carry a proxy media-rep",
+    )
 
     server_parser = subparsers.add_parser("server", help="serve one .fcpxmld bundle on localhost")
     server_sub = server_parser.add_subparsers(dest="server_command", required=True)
@@ -213,6 +206,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def _positive_int(raw: str) -> int:
+    """argparse ``type`` for the ``proxy`` sizing flags: an integer >= 1.
+
+    Why this exists: ``--height 0`` would make every source "already small"
+    and silently generate nothing, and a non-positive ``--bitrate`` is an
+    ffmpeg error deep in the encode. Rejecting both at parse time names the
+    bad value up front.
+    """
+
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"expected a positive integer, got {raw!r}") from exc
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"expected a positive integer (>= 1), got {value}")
+    return value
 
 
 def _add_local_runtime_options(command: argparse.ArgumentParser, *, default_port: int) -> None:
@@ -240,6 +251,28 @@ def _add_local_runtime_options(command: argparse.ArgumentParser, *, default_port
         action="append",
         default=[],
         help="explicit loopback browser origin; repeat for multiple origins",
+    )
+    _add_symlink_media_option(command)
+
+
+def _add_symlink_media_option(command: argparse.ArgumentParser) -> None:
+    """Add the identical ``--symlink-media`` opt-in to every open-a-bundle command.
+
+    When set, opening the ``.fcpxmld`` bundle first symlinks every EXTERNAL
+    media file referenced by ``Info.fcpxml`` into the bundle's ``Media/`` folder
+    and repoints each ``src`` at ``Media/<name>`` -- making the bundle
+    self-contained by reference before the command runs. Shared here (render,
+    server run, studio) so the flag reads and behaves identically everywhere.
+    """
+
+    command.add_argument(
+        "--symlink-media",
+        action="store_true",
+        help=(
+            "before opening, symlink every external media file referenced in "
+            "Info.fcpxml into the bundle's Media/ folder and rewrite each src to "
+            "Media/<name> (requires a .fcpxmld bundle)"
+        ),
     )
 
 
@@ -281,6 +314,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    # ``--symlink-media`` consolidates the bundle's referenced media into its
+    # Media/ folder BEFORE the command opens it, so render/server/studio all see
+    # the same self-contained bundle. It runs ahead of every dispatch branch
+    # below (server/studio return early from main), and any hard failure aborts
+    # here rather than surfacing mid-open.
+    if getattr(args, "symlink_media", False):
+        symlink_status = _run_symlink_media(args)
+        if symlink_status != 0:
+            return symlink_status
+
     # ``examples`` and ``doctor`` never compile a project, so they are handled
     # before the compile path (they do not carry input/project/bindings).
     if args.command == "examples":
@@ -293,6 +336,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _run_server_command(parser, args)
     if args.command == "studio":
         return _run_studio_command(parser, args)
+    if args.command == "proxy":
+        return _run_proxy(args)
 
     if args.command == "render":
         args.output = _resolve_render_output(args)
@@ -304,7 +349,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     compiled = None
     try:
-        compiled = compile_fcpxml(args.input, project=args.project, bindings_path=args.bindings)
+        compiled = compile_fcpxml(
+            args.input,
+            project=args.project,
+            bindings_path=args.bindings,
+            media_preference=getattr(args, "prefer", "original"),
+        )
         if args.command == "inspect":
             report_path = args.report.expanduser().resolve() if args.report else args.input.expanduser().resolve().with_suffix(".compatibility.json")
             compiled.report.write(report_path)
@@ -357,8 +407,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             backend=args.backend,
             device=None if args.device == "auto" else args.device,
             cpu_segmentation=None,
-            cpu_segment_parallelism=args.segment_parallel,
-            render_profile=args.render_profile,
+            cpu_segment_parallelism=1,
+            render_profile="reference",
             encoder_preset=args.encoder_preset,
             show_progress=args.backend == "tensor" and not args.no_progress,
         )
@@ -384,6 +434,70 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             _write_compile_failure_artifacts(args, exc)
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _run_symlink_media(args: argparse.Namespace) -> int:
+    """Consolidate the bundle's referenced media, printing a concise report.
+
+    Main callers: ``main`` when ``--symlink-media`` is set on ``render``,
+    ``server run``, or ``studio``.
+
+    Returns 0 on success (even a no-op is success), or 1 when consolidation
+    hits a hard, unrecoverable condition (input is not a bundle, a malformed or
+    unsafe ``Info.fcpxml``, two distinct files colliding on one ``Media/<name>``
+    link, or the document changing on disk mid-run). Offline media is a
+    warning inside the report, never a failure here.
+
+    Every failure type derives from ``FCPXMLRenderError`` (``MediaConsolidationError``,
+    ``FCPXMLParseError``, ``FCPXMLWriteConflictError``), so the shared base is
+    caught here: a parse failure is a concise ``error:`` line like any other,
+    never a traceback.
+    """
+
+    from .core.errors import FCPXMLRenderError
+    from .core.media_consolidate import consolidate_bundle_media
+
+    try:
+        result = consolidate_bundle_media(args.input)
+    except FCPXMLRenderError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for line in result.summary_lines():
+        print(line, file=sys.stderr)
+    return 0
+
+
+def _run_proxy(args: argparse.Namespace) -> int:
+    """Generate proxy media for a document's video assets, printing a report.
+
+    Main callers: ``main`` for the ``proxy`` subcommand.
+
+    Returns 0 on success (a no-op -- e.g. every asset already proxied -- is still
+    success), or 1 when generation hits a hard condition (a bad input, an
+    ffmpeg/ffprobe failure on a source, or the document changing on disk while
+    proxies were encoding). Unresolvable media is surfaced as a warning in the
+    report, never a hard failure.
+
+    ``ProxyGenerationError``, ``FCPXMLParseError`` and ``FCPXMLWriteConflictError``
+    all derive from ``FCPXMLRenderError``, so the shared base is caught.
+    """
+
+    from .core.errors import FCPXMLRenderError
+    from .core.proxy_media import generate_proxies
+
+    try:
+        result = generate_proxies(
+            args.input,
+            target_short_side=args.height,
+            bitrate_kbps=args.bitrate,
+            overwrite=args.overwrite,
+        )
+    except FCPXMLRenderError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for line in result.summary_lines():
+        print(line, file=sys.stderr)
+    return 0
 
 
 def _write_compile_failure_artifacts(args: argparse.Namespace, error: Exception) -> None:
@@ -592,8 +706,9 @@ def _run_doctor() -> int:
     """Report runtime prerequisites and exit non-zero if a hard one is missing.
 
     Checks, in order:
-    - ``ffprobe`` on PATH (HARD prerequisite: probing shells out to it). If
-      absent, print a loud install hint and make the overall exit non-zero.
+    - ``ffmpeg`` and ``ffprobe`` on PATH (HARD prerequisites: live preview
+      audio and probing shell out to them). If either is absent, print a loud
+      install hint and make the overall exit non-zero.
     - The torch compute device the tensor backend would select (mps > cuda >
       cpu), matching ``renderer._select_device``'s preference order.
     - Versions of python, torch, av (PyAV), and ffprobe, so a bug report can
@@ -603,6 +718,14 @@ def _run_doctor() -> int:
     """
 
     ok = True
+
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg:
+        print(f"ffmpeg: OK ({ffmpeg})")
+    else:
+        ok = False
+        print("ffmpeg: MISSING -- required for Studio preview audio.", file=sys.stderr)
+        print("  install hint: `brew install ffmpeg` (macOS) or your distro's ffmpeg package.", file=sys.stderr)
 
     ffprobe = shutil.which("ffprobe")
     if ffprobe:

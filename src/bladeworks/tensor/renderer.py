@@ -80,7 +80,7 @@ from .blend import composite_layers
 from .color import linearize
 from .composite import opaque_black, over, unpremultiply
 from .decode_policy import DecodePolicy, decoded_to_native_matrix, scale_alpha_window
-from .effects import apply_effects
+from .effects import CanvasPlacement, apply_effects
 from .encode import (
     EncoderAudio,
     EncoderThread,
@@ -97,6 +97,7 @@ from .sampler import (
     GridCache,
     apply_display_rotation,
     apply_alpha_window,
+    apply_matrix,
     composed_matrix,
     conform_matrix,
     is_identity,
@@ -595,24 +596,71 @@ class _FrameComposer:
             # (and the staged conform of a root scope's direct leaf: the container clips
             # first, the transform moves the clipped canvas).
             conform = conform_matrix(snapshot, layer.frame, layer.conform) @ decoded_to_native
+            canvas_width, canvas_height = layer.frame.project_width, layer.frame.project_height
+            # The composed (post-effects) transform, clip canvas -> output. Built
+            # BEFORE the conform warp because the overscan surface is bounded by
+            # the canvas region this transform can actually sample.
+            canvas_composed = canvas_matrix @ composed_matrix(snapshot, layer.frame)
+            # Effects run on a surface that keeps the conform's overscan, so a
+            # later pan / zoom transform samples the real image instead of the
+            # black left by a premature crop-to-canvas (see ``_overscan_surface``).
+            # ``preserve`` is gated to the EFFECTS trigger: a pure ``staged``
+            # container leaf keeps its intentional clip (``preserve=False`` ->
+            # identity surface), and any clip whose conformed content already fits
+            # the canvas is byte-identical to the previous path.
+            surface_conform, (surface_width, surface_height), surface_origin = _overscan_surface(
+                conform,
+                source_width=source_width,
+                source_height=source_height,
+                canvas_width=canvas_width,
+                canvas_height=canvas_height,
+                preserve=bool(layer.effects) and not layer.staged,
+                sample_bound=_sampled_canvas_bound(
+                    canvas_composed,
+                    out_width=out_width,
+                    out_height=out_height,
+                    canvas_width=canvas_width,
+                    canvas_height=canvas_height,
+                ),
+            )
             grid = self.grids.grid_for(
-                f"{layer.clip_id}:conform", conform,
-                out_height=layer.frame.project_height, out_width=layer.frame.project_width,
+                f"{layer.clip_id}:conform", surface_conform,
+                out_height=surface_height, out_width=surface_width,
                 source_height=source_height, source_width=source_width, device=dev,
             )
             canvas = premultiply(warp(straight, grid))
             if layer.effects:
                 # ``N`` counts on the layer's local frame grid (the pad grid inside a
                 # retimed group; the output grid otherwise), like the reference chain.
+                # On an enlarged surface the placement tells the effects where the
+                # clip canvas sits so every canvas-relative kernel keeps its
+                # clip-canvas coordinate system (``effects`` module doc). When the
+                # surface IS the canvas the call is the plain, pre-overscan one.
+                placement = None
+                if surface_origin != (0, 0) or (surface_width, surface_height) != (canvas_width, canvas_height):
+                    placement = CanvasPlacement(
+                        width=canvas_width,
+                        height=canvas_height,
+                        origin_x=surface_origin[0],
+                        origin_y=surface_origin[1],
+                    )
                 canvas = apply_effects(
-                    canvas, layer.effects, frame=layer.local_frame(frame, layer.frame_duration), frame_duration=layer.frame_duration
+                    canvas,
+                    layer.effects,
+                    frame=layer.local_frame(frame, layer.frame_duration),
+                    frame_duration=layer.frame_duration,
+                    **({} if placement is None else {"placement": placement}),
                 )
-            composed = canvas_matrix @ composed_matrix(snapshot, layer.frame)
-            if not is_identity(composed) or (layer.frame.project_width, layer.frame.project_height) != (out_width, out_height):
+            # ``translate(surface_origin)`` re-expresses the (possibly enlarged,
+            # origin-shifted) surface in clip-canvas coords before the composed
+            # transform. It is identity when the surface is the clip canvas, so
+            # this collapses to ``canvas_matrix @ composed_matrix`` unchanged.
+            composed = canvas_composed @ _translation(surface_origin[0], surface_origin[1])
+            if not is_identity(composed) or (surface_width, surface_height) != (out_width, out_height):
                 grid = self.grids.grid_for(
                     f"{layer.clip_id}:composed", composed,
                     out_height=out_height, out_width=out_width,
-                    source_height=layer.frame.project_height, source_width=layer.frame.project_width, device=dev,
+                    source_height=surface_height, source_width=surface_width, device=dev,
                 )
                 canvas = warp(canvas, grid)
         else:
@@ -901,6 +949,145 @@ class _FrameComposer:
 
 def _translation(x: float, y: float) -> np.ndarray:
     return np.array([[1.0, 0.0, float(x)], [0.0, 1.0, float(y)], [0.0, 0.0, 1.0]], dtype=np.float64)
+
+
+Rect = tuple[float, float, float, float]  # (left, top, right, bottom) edge coordinates
+
+# Bilinear sampling reads the 2x2 neighbourhood of each output pixel centre; the mapped
+# output RECT already covers the centres, so one extra source pixel (rounded up to two)
+# on every side is enough for any scale.
+_SAMPLE_MARGIN_PX = 2.0
+
+
+def _sampled_canvas_bound(
+    composed: np.ndarray,
+    *,
+    out_width: int,
+    out_height: int,
+    canvas_width: int,
+    canvas_height: int,
+    margin: float = _SAMPLE_MARGIN_PX,
+) -> Optional[Rect]:
+    """The clip-canvas region the composed warp can sample, or ``None`` for "unbounded".
+
+    ``composed`` maps clip-canvas edge coordinates to output edge coordinates
+    (``canvas_matrix @ composed_matrix``). Inverse-mapping the output rectangle's
+    four corners gives the canvas-space quad the output reads; its bounding box
+    plus ``margin`` bounds every bilinear tap. Overscan outside it can never reach
+    the output, so ``_overscan_surface`` need not allocate it.
+
+    Two special cases:
+    * identity onto a same-sized output: the composed warp is SKIPPED by the
+      caller and the surface is read 1:1, so the bound is the canvas itself with
+      NO margin -- this is what collapses the identity case to exactly the clip
+      canvas (the byte-identical pre-overscan path);
+    * a singular matrix or a corner mapped behind the projective camera
+      (``w <= 0``, a degenerate corner pin): the quad is not a finite rectangle,
+      so the bound is dropped (``None``) and the caller keeps the full union --
+      the previous behaviour, more memory but never a missing pixel.
+
+    Main callers: ``_FrameComposer._compose_leaf`` (staged effects branch).
+    """
+
+    if is_identity(composed) and (out_width, out_height) == (canvas_width, canvas_height):
+        return (0.0, 0.0, float(canvas_width), float(canvas_height))
+    try:
+        inverse = np.linalg.inv(composed)
+    except np.linalg.LinAlgError:
+        return None
+    xs: list[float] = []
+    ys: list[float] = []
+    for x, y in ((0.0, 0.0), (float(out_width), 0.0), (0.0, float(out_height)), (float(out_width), float(out_height))):
+        hx, hy, hw = inverse @ np.array([x, y, 1.0])
+        if hw <= 1e-12:
+            return None
+        xs.append(float(hx / hw))
+        ys.append(float(hy / hw))
+    return (min(xs) - margin, min(ys) - margin, max(xs) + margin, max(ys) + margin)
+
+
+def _overscan_surface(
+    conform: np.ndarray,
+    *,
+    source_width: int,
+    source_height: int,
+    canvas_width: int,
+    canvas_height: int,
+    preserve: bool,
+    sample_bound: Optional[Rect] = None,
+) -> tuple[np.ndarray, tuple[int, int], tuple[int, int]]:
+    """Size the staged-effect intermediate surface to keep (only the useful) conform overscan.
+
+    Returns ``(surface_conform, (surface_width, surface_height), (origin_x, origin_y))``
+    where ``origin`` is the clip-canvas coordinate of the surface's top-left pixel
+    (integers, ``<= 0``; the surface always contains the whole clip canvas).
+
+    Why this exists
+    ---------------
+    The staged leaf path (``_compose_leaf`` effects branch) warps the source
+    through the spatial ``conform`` onto an intermediate raster, runs the clip's
+    effects on it, then warps that raster through the composed transform. When it
+    conformed onto exactly the CLIP CANVAS, any source content the conform placed
+    OUTSIDE the canvas (an aspect-mismatched ``fill``, a ``crop`` / Ken-Burns
+    camera, an oversized ``none``) was discarded before the transform ran -- so a
+    transform that pans or zooms that overscan back into frame exposed black,
+    while Final Cut (and the effect-free fused ``layer_homography`` path) show the
+    image. See ``REFERENCE_DISCREPANCIES.md`` rows 3 and 26.
+
+    What it does
+    ------------
+    With ``preserve`` set, the surface is the integer bounding box of the clip
+    canvas rectangle UNION the part of the conformed source quad's bounding box
+    that lies inside ``sample_bound`` (the canvas region the composed transform
+    can read, ``_sampled_canvas_bound``; ``None`` = keep all of it), and
+    ``surface_conform`` is the conform pre-translated so it targets that
+    surface's origin. Effects then run at the same pixel density as before -- the
+    surface only GROWS to hold overscan the transform will actually sample.
+
+    Why the bound: without it the surface is the whole conformed quad, and a
+    tight ``crop`` / Ken-Burns camera (source scaled up N times) allocates an
+    N-squared intermediate for a fixed-size output -- gigabytes for a 10x punch-in.
+
+    Non-regression invariant
+    -------------------------
+    When the conformed content already fits inside the clip canvas (``fit``,
+    ``none``-smaller, matched-aspect ``fill``), or the bound admits none of the
+    overscan (an identity transform, whose bound is the canvas itself), the union
+    equals the canvas, so this returns the canvas size, a zero origin, and the
+    conform unchanged -- the warp, the effect input, and the composed step are
+    then byte-identical to the previous canvas-only path. ``preserve=False`` also
+    returns that identity, so the intentional container clip of a ``staged`` leaf
+    is never widened.
+
+    Main callers: ``_FrameComposer._compose_leaf``; unit-tested directly.
+    """
+
+    if not preserve:
+        return conform, (canvas_width, canvas_height), (0, 0)
+    corners = (
+        (0.0, 0.0),
+        (float(source_width), 0.0),
+        (0.0, float(source_height)),
+        (float(source_width), float(source_height)),
+    )
+    content = apply_matrix(conform, corners)
+    left, top = min(point[0] for point in content), min(point[1] for point in content)
+    right, bottom = max(point[0] for point in content), max(point[1] for point in content)
+    if sample_bound is not None:
+        left, top = max(left, sample_bound[0]), max(top, sample_bound[1])
+        right, bottom = min(right, sample_bound[2]), min(bottom, sample_bound[3])
+    xs = [0.0, float(canvas_width)] + ([left, right] if right > left else [])
+    ys = [0.0, float(canvas_height)] + ([top, bottom] if bottom > top else [])
+    surface_left, surface_top = math.floor(min(xs)), math.floor(min(ys))
+    surface_right, surface_bottom = math.ceil(max(xs)), math.ceil(max(ys))
+    if (surface_left, surface_top, surface_right, surface_bottom) == (0, 0, canvas_width, canvas_height):
+        return conform, (canvas_width, canvas_height), (0, 0)
+    surface_conform = _translation(-surface_left, -surface_top) @ conform
+    return (
+        surface_conform,
+        (surface_right - surface_left, surface_bottom - surface_top),
+        (surface_left, surface_top),
+    )
 
 
 FrameProgress = Callable[[int, int], None]

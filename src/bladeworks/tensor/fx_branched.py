@@ -92,7 +92,7 @@ import torch
 
 from ..core.model import ResolvedEffect
 from .color import code_to_premultiplied, premultiplied_to_code
-from .effects import ApplyContext, EffectPort, LowerContext, register
+from .effects import OVERSCAN_CROP, ApplyContext, EffectPort, LowerContext, register
 from .fx_color import (
     BridgeLink,
     eq_process_lut,
@@ -637,4 +637,11 @@ def _apply_callout(payload: CalloutPayload, canvas: torch.Tensor, ctx: ApplyCont
     return code_to_premultiplied(out.to(canvas.dtype))
 
 
-register(EffectPort(handler=CALLOUT_HANDLER, lower=_lower_callout, apply=_apply_callout))
+# ``"crop"``: the Callout graph is a canvas-relative COMPOSITION (a crop window sized and
+# placed by ``lrint`` of the canvas dimensions, rescaled and overlaid at a canvas-normalized
+# position over the blurred field).  Run on an overscan surface it would cut and overlay a
+# second inset relative to the surface, which a pan would reveal; it cannot be re-expressed
+# in canvas coordinates without re-deriving the whole calibrated graph.  So only the canvas
+# crop is processed and the overscan keeps its input pixels (a pan past the canvas shows the
+# un-called-out image there rather than black).
+register(EffectPort(handler=CALLOUT_HANDLER, lower=_lower_callout, apply=_apply_callout, overscan=OVERSCAN_CROP))

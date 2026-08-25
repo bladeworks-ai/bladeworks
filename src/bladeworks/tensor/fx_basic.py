@@ -89,8 +89,17 @@ import torch
 from ..core.filter_text import format_number as cpu_number
 from ..core.model import ResolvedEffect
 from .color import code_to_premultiplied, premultiplied_to_code
-from .effects import ApplyContext, EffectPort, LowerContext, effect_scalar, register
-from .expr import geq_rgba, parse
+from .effects import (
+    OVERSCAN_EXTEND,
+    OVERSCAN_SPLICE,
+    ApplyContext,
+    EffectPort,
+    LowerContext,
+    effect_scalar,
+    geq_rgba_canvas,
+    register,
+)
+from .expr import parse
 from .support import reject
 from .fx_color import LINK_COLORSPACE_ALIASES, BridgeLink, rgba8_to_yuva444p8, yuva444p8_to_rgba8
 
@@ -259,7 +268,7 @@ def _apply_negative(payload: NegativePayload, canvas: torch.Tensor, ctx: ApplyCo
     return _from_code8(torch.cat((rgb, code[3:4]), dim=0))
 
 
-register(EffectPort(handler="negative", lower=_lower_negative, apply=_apply_negative))
+register(EffectPort(handler="negative", lower=_lower_negative, apply=_apply_negative, overscan=OVERSCAN_EXTEND))
 
 
 # --------------------------------------------------------------------------- Threshold / Mirror (geq)
@@ -298,14 +307,16 @@ def _lower_geq(kind: str):
 
 
 def _apply_geq(payload: GeqPayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
+    # Both expressions only ever sample INSIDE the clip canvas (threshold reads its own
+    # pixel; mirror folds X onto [W/2, W-1]), so in clip-canvas coordinates the canvas
+    # region is bit-identical on an overscan surface: ``"extend"``.
     strings = THRESHOLD_GEQ if payload.kind == "threshold" else MIRROR_GEQ
     expressions = {key: parse(text) for key, text in strings.items()}
-    out = geq_rgba(expressions, _code8(canvas), frame_number=ctx.frame, time_seconds=ctx.seconds)
-    return _from_code8(out)
+    return _from_code8(geq_rgba_canvas(expressions, _code8(canvas), ctx))
 
 
-register(EffectPort(handler="threshold", lower=_lower_geq("threshold"), apply=_apply_geq))
-register(EffectPort(handler="mirror", lower=_lower_geq("mirror"), apply=_apply_geq))
+register(EffectPort(handler="threshold", lower=_lower_geq("threshold"), apply=_apply_geq, overscan=OVERSCAN_EXTEND))
+register(EffectPort(handler="mirror", lower=_lower_geq("mirror"), apply=_apply_geq, overscan=OVERSCAN_EXTEND))
 
 
 # --------------------------------------------------------------------------- Colorize (colorchannelmixer)
@@ -346,7 +357,7 @@ def _apply_colorize(payload: ColorizePayload, canvas: torch.Tensor, ctx: ApplyCo
     return _from_code8(torch.cat((torch.stack(outs), code[3:4]), dim=0))
 
 
-register(EffectPort(handler="colorize", lower=_lower_colorize, apply=_apply_colorize))
+register(EffectPort(handler="colorize", lower=_lower_colorize, apply=_apply_colorize, overscan=OVERSCAN_EXTEND))
 
 
 # --------------------------------------------------------------------------- Tint (colorize + eq, 601 bridge)
@@ -421,7 +432,7 @@ def _apply_tint(payload: TintPayload, canvas: torch.Tensor, ctx: ApplyContext) -
     return _from_code8(_yuva444p_to_rgba(torch.stack((y, u, v, yuva[3])), canvas.dtype, payload.link))
 
 
-register(EffectPort(handler="tint", lower=_lower_tint, apply=_apply_tint))
+register(EffectPort(handler="tint", lower=_lower_tint, apply=_apply_tint, overscan=OVERSCAN_EXTEND))
 
 
 # --------------------------------------------------------------------------- Flipped (hflip)
@@ -440,10 +451,26 @@ def _lower_flipped(effect: ResolvedEffect, ctx: LowerContext) -> FlippedPayload:
 def _apply_flipped(payload: FlippedPayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
     # A byte-exact horizontal flip on rgba; premultiplied linear flips identically, and the
     # 8-bit link is a no-op for a permutation, so no code round trip is needed.
-    return canvas.flip(-1)
+    #
+    # The flip is about the CLIP CANVAS centre: canvas column x goes to W-1-x.  On an
+    # overscan surface (column i is canvas column i + origin_x) that is surface column
+    # W-1-2*origin_x-i, i.e. ``flip`` then a shift by W-2*origin_x-surface_w (zero for a
+    # symmetric fill overscan); columns shifted off the surface are dropped, uncovered
+    # columns are transparent.  Canvas columns always land on canvas columns, so the canvas
+    # region is bit-identical to a canvas-only flip: ``"extend"``.
+    flipped = canvas.flip(-1)
+    shift = ctx.width - 2 * ctx.origin_x - int(canvas.shape[2])
+    if shift == 0:
+        return flipped
+    out = torch.zeros_like(flipped)
+    if shift > 0:
+        out[:, :, shift:] = flipped[:, :, : flipped.shape[2] - shift]
+    else:
+        out[:, :, : flipped.shape[2] + shift] = flipped[:, :, -shift:]
+    return out
 
 
-register(EffectPort(handler="flipped", lower=_lower_flipped, apply=_apply_flipped))
+register(EffectPort(handler="flipped", lower=_lower_flipped, apply=_apply_flipped, overscan=OVERSCAN_EXTEND))
 
 
 # --------------------------------------------------------------------------- Add Noise (noise, gbrap)
@@ -513,19 +540,35 @@ def _noise_plane_tables(seed: int, strength: int) -> tuple[np.ndarray, np.ndarra
 _NOISE_CACHE: dict[tuple, torch.Tensor] = {}
 
 
-def _noise_field(height: int, width: int, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
-    """[3, H, W] additive noise for the R, G, B code planes (cached; the pattern is static per frame)."""
+def _noise_field(
+    height: int,
+    width: int,
+    device: torch.device,
+    dtype: torch.dtype,
+    *,
+    origin: tuple[int, int] = (0, 0),
+) -> torch.Tensor:
+    """[3, H, W] additive noise for the R, G, B code planes (cached; the pattern is static per frame).
 
-    key = (height, width, str(device), dtype)
+    ``height`` / ``width`` are the SURFACE size and ``origin`` the clip-canvas coordinate of
+    its top-left pixel (``ApplyContext``): the field is laid out in clip-canvas coordinates
+    (row ``y`` uses ``rand_shift[y & 4095]``, column ``x`` indexes the table at ``shift + x``),
+    so the canvas region is the reference layout bit for bit and the overscan continues it.
+    Overscan columns can leave the reference's single-chunk table range (negative canvas x,
+    or shift + x beyond MAX_NOISE), where the table index wraps -- those pixels have no
+    reference value; any deterministic noise is fine there.
+    """
+
+    key = (height, width, origin, str(device), dtype)
     field = _NOISE_CACHE.get(key)
     if field is None:
-        if width > _MAX_RES:
-            raise ValueError(f"noise port: width {width} exceeds the single-chunk MAX_RES {_MAX_RES}")
+        canvas_ys = np.arange(height) + origin[1]
+        canvas_xs = np.arange(width) + origin[0]
         planes = {}
         for comp, option in enumerate(_NOISE_PLANES):
             table, shifts = _noise_plane_tables(_NOISE_BASE_SEED + comp * 31415, _NOISE_STRENGTH)
-            rows = shifts[np.arange(height) & (_MAX_RES - 1)]
-            planes[option] = table[rows[:, None] + np.arange(width)[None, :]]
+            rows = shifts[canvas_ys & (_MAX_RES - 1)]
+            planes[option] = table[(rows[:, None] + canvas_xs[None, :]) % _MAX_NOISE]
         # gbrap plane order: c0 = G, c1 = B, c2 = R -> stack as R, G, B
         stacked = np.stack((planes["c2"], planes["c0"], planes["c1"])).astype(np.float64)
         field = torch.from_numpy(stacked).to(device=device, dtype=dtype)
@@ -546,13 +589,15 @@ def _lower_noise(effect: ResolvedEffect, ctx: LowerContext) -> NoisePayload:
 
 
 def _apply_noise(payload: NoisePayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
+    # Pointwise add of a field laid out in clip-canvas coordinates: ``"extend"``.
     code = _code8(canvas)
     _, height, width = code.shape
-    rgb = (code[:3] + _noise_field(height, width, canvas.device, canvas.dtype)).clamp(0.0, 255.0)
+    field = _noise_field(height, width, canvas.device, canvas.dtype, origin=(ctx.origin_x, ctx.origin_y))
+    rgb = (code[:3] + field).clamp(0.0, 255.0)
     return _from_code8(torch.cat((rgb, code[3:4]), dim=0))
 
 
-register(EffectPort(handler="add_noise", lower=_lower_noise, apply=_apply_noise))
+register(EffectPort(handler="add_noise", lower=_lower_noise, apply=_apply_noise, overscan=OVERSCAN_EXTEND))
 
 
 # --------------------------------------------------------------------------- Pixellate (pixelize avg 4x4)
@@ -572,25 +617,37 @@ def _lower_pixellate(effect: ResolvedEffect, ctx: LowerContext) -> PixellatePayl
     return PixellatePayload()
 
 
-def _block_average_floor(planes: torch.Tensor, block: int) -> torch.Tensor:
-    """Integer block mean (floor) with clipped edge blocks, expanded back to the plane size."""
+def _block_average_floor(planes: torch.Tensor, block: int, *, origin: tuple[int, int] = (0, 0)) -> torch.Tensor:
+    """Integer block mean (floor) with clipped edge blocks, expanded back to the plane size.
+
+    The block grid is anchored at CLIP-CANVAS (0, 0): with ``origin`` (the canvas coordinate
+    of the plane's top-left pixel) the plane is zero-padded on the left / top so its block
+    boundaries fall on canvas multiples of ``block``; the padding is excluded from the counts.
+    """
 
     _, height, width = planes.shape
+    pad_left, pad_top = (-origin[0]) % block, (-origin[1]) % block
     ones = torch.ones((1, height, width), device=planes.device, dtype=planes.dtype)
+    if pad_left or pad_top:
+        planes = torch.nn.functional.pad(planes, (pad_left, 0, pad_top, 0))
+        ones = torch.nn.functional.pad(ones, (pad_left, 0, pad_top, 0))
     sums = torch.nn.functional.avg_pool2d(planes.unsqueeze(0), block, stride=block, ceil_mode=True, count_include_pad=False, divisor_override=1)
     counts = torch.nn.functional.avg_pool2d(ones.unsqueeze(0), block, stride=block, ceil_mode=True, count_include_pad=False, divisor_override=1)
     fill = torch.div(sums.round(), counts.round(), rounding_mode="floor")
     expanded = fill.repeat_interleave(block, dim=2).repeat_interleave(block, dim=3)
-    return expanded[0, :, :height, :width]
+    return expanded[0, :, pad_top:pad_top + height, pad_left:pad_left + width]
 
 
 def _apply_pixellate(payload: PixellatePayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
+    # The reference clips its edge blocks to the CANVAS; on an overscan surface a block
+    # straddling the canvas edge would average overscan pixels in, so the canvas region is
+    # ``"splice"`` (crop run).  The surface run keeps the block grid on canvas multiples.
     code = _code8(canvas)
-    rgb = _block_average_floor(code[:3], _PIXELIZE_BLOCK)
+    rgb = _block_average_floor(code[:3], _PIXELIZE_BLOCK, origin=(ctx.origin_x, ctx.origin_y))
     return _from_code8(torch.cat((rgb, code[3:4]), dim=0))
 
 
-register(EffectPort(handler="pixellate_default", lower=_lower_pixellate, apply=_apply_pixellate))
+register(EffectPort(handler="pixellate_default", lower=_lower_pixellate, apply=_apply_pixellate, overscan=OVERSCAN_SPLICE))
 
 
 # --------------------------------------------------------------------------- Gaussian (gblur, gbrap, all planes)
@@ -675,7 +732,10 @@ def _apply_gaussian(payload: GaussianPayload, canvas: torch.Tensor, ctx: ApplyCo
     return _from_code8(gblur_planes(_code8(canvas), payload))
 
 
-register(EffectPort(handler="gaussian", lower=_lower_gaussian, apply=_apply_gaussian))
+# The recursive filter scales its boundary samples (``bscale``) at the frame edges, so the
+# canvas region depends on where the frame ends: ``"splice"`` (crop run for the canvas, the
+# surface run blurs the overscan with the real neighbourhood).
+register(EffectPort(handler="gaussian", lower=_lower_gaussian, apply=_apply_gaussian, overscan=OVERSCAN_SPLICE))
 
 
 # --------------------------------------------------------------------------- Sharpen (unsharp luma, 601 bridge)
@@ -722,7 +782,8 @@ def _apply_sharpen(payload: SharpenPayload, canvas: torch.Tensor, ctx: ApplyCont
     return _from_code8(_yuva444p_to_rgba(torch.stack((y, yuva[1], yuva[2], yuva[3])), canvas.dtype, payload.link))
 
 
-register(EffectPort(handler="sharpen", lower=_lower_sharpen, apply=_apply_sharpen))
+# Replicate-padded 5x5 at the frame edge: ``"splice"`` like ``gaussian``.
+register(EffectPort(handler="sharpen", lower=_lower_sharpen, apply=_apply_sharpen, overscan=OVERSCAN_SPLICE))
 
 
 # --------------------------------------------------------------------------- Vignette (rgb24: alpha dropped)
@@ -755,16 +816,32 @@ def _lower_vignette(effect: ResolvedEffect, ctx: LowerContext) -> VignettePayloa
 _VIGNETTE_CACHE: dict[tuple, torch.Tensor] = {}
 
 
-def vignette_fmap(height: int, width: int, angle: float, device: torch.device) -> torch.Tensor:
-    """``get_natural_factor`` over the frame as the float32 map ffmpeg keeps (returned as float32)."""
+def vignette_fmap(
+    height: int,
+    width: int,
+    angle: float,
+    device: torch.device,
+    *,
+    surface: Optional[tuple[int, int]] = None,
+    origin: tuple[int, int] = (0, 0),
+) -> torch.Tensor:
+    """``get_natural_factor`` over the frame as the float32 map ffmpeg keeps (returned as float32).
 
-    key = (height, width, angle, str(device))
+    ``height`` / ``width`` are the CLIP CANVAS (the ellipse centre and ``dmax`` come from it).
+    ``surface`` (``(height, width)``, default the canvas) and ``origin`` (the canvas coordinate
+    of the surface's top-left pixel) evaluate the same map over an overscan surface in canvas
+    coordinates: the canvas region is bit-identical and the map continues outward (0 beyond
+    the ellipse, exactly like the reference's own corners).
+    """
+
+    surface_h, surface_w = surface if surface is not None else (height, width)
+    key = (height, width, angle, surface_h, surface_w, origin, str(device))
     fmap = _VIGNETTE_CACHE.get(key)
     if fmap is None:
         x0, y0 = width / 2.0, height / 2.0
         dmax = math.hypot(width / 2.0, height / 2.0)
-        xs = np.trunc((np.arange(width) - x0) * 1.0).astype(np.float64)   # (int)((x - x0) * xscale)
-        ys = np.trunc((np.arange(height) - y0) * 1.0).astype(np.float64)
+        xs = np.trunc((np.arange(surface_w) + origin[0] - x0) * 1.0).astype(np.float64)   # (int)((x - x0) * xscale)
+        ys = np.trunc((np.arange(surface_h) + origin[1] - y0) * 1.0).astype(np.float64)
         dnorm = np.hypot(xs[None, :], ys[:, None]) / dmax
         c = np.cos(angle * dnorm)
         factor = np.where(dnorm > 1.0, 0.0, (c * c) * (c * c)).astype(np.float32)
@@ -820,11 +897,32 @@ def vignette_dither(frame: int, height: int, width: int, device: torch.device, d
     return (states.to(dtype) / float(1 << 32)).view(height, width, 3).permute(2, 0, 1)
 
 
-def vignette_rgb(code_rgb: torch.Tensor, angle: float, frame: int) -> torch.Tensor:
-    """``vf_vignette.c`` RGB path on integer-valued code planes ``[3, H, W]``."""
+def vignette_rgb(
+    code_rgb: torch.Tensor,
+    angle: float,
+    frame: int,
+    *,
+    canvas: Optional[tuple[int, int, int, int]] = None,
+) -> torch.Tensor:
+    """``vf_vignette.c`` RGB path on integer-valued code planes ``[3, H, W]``.
+
+    ``canvas = (width, height, origin_x, origin_y)`` places the clip canvas when the planes
+    are an overscan surface: the factor map is then evaluated in canvas coordinates.  The
+    dither LCG, however, is consumed in the reference's raster order over the CANVAS (frame
+    ``n`` draws samples ``[3WHn, 3WH(n+1))``), so a surface run draws it over the surface
+    raster instead -- its canvas pixels get different dither values.  That is why the port
+    is ``"splice"``: the crop run (``canvas=None``) supplies the exact canvas region and this
+    surface run only ever contributes overscan pixels.
+    """
 
     _, height, width = code_rgb.shape
-    fmap = vignette_fmap(height, width, angle, code_rgb.device)
+    if canvas is None:
+        fmap = vignette_fmap(height, width, angle, code_rgb.device)
+    else:
+        canvas_w, canvas_h, origin_x, origin_y = canvas
+        fmap = vignette_fmap(
+            canvas_h, canvas_w, angle, code_rgb.device, surface=(height, width), origin=(origin_x, origin_y)
+        )
     scaled = (code_rgb.float() * fmap).to(code_rgb.dtype)  # ``srcp[0] * f`` is a float32 product
     dither = vignette_dither(frame, height, width, code_rgb.device, code_rgb.dtype)
     return (scaled + dither).trunc().clamp(0.0, 255.0)  # av_clip_uint8((int)double)
@@ -832,12 +930,13 @@ def vignette_rgb(code_rgb: torch.Tensor, angle: float, frame: int) -> torch.Tens
 
 def _apply_vignette(payload: VignettePayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
     code = _code8(canvas)
-    rgb = vignette_rgb(code[:3], payload.angle, ctx.frame)
+    placement = None if ctx.is_whole_surface(canvas) else (ctx.width, ctx.height, ctx.origin_x, ctx.origin_y)
+    rgb = vignette_rgb(code[:3], payload.angle, ctx.frame, canvas=placement)
     opaque = torch.full_like(code[3:4], 255.0)  # rgb24 -> gbrap: alpha becomes 255
     return _from_code8(torch.cat((rgb, opaque), dim=0))
 
 
-register(EffectPort(handler="vignette", lower=_lower_vignette, apply=_apply_vignette))
+register(EffectPort(handler="vignette", lower=_lower_vignette, apply=_apply_vignette, overscan=OVERSCAN_SPLICE))
 
 
 # --------------------------------------------------------------------------- Color Curves / Hue-Sat Curves (no-ops)
@@ -861,8 +960,8 @@ def _apply_identity(payload: IdentityPayload, canvas: torch.Tensor, ctx: ApplyCo
     return canvas
 
 
-register(EffectPort(handler="cohort_color_curves", lower=_lower_identity, apply=_apply_identity))
-register(EffectPort(handler="cohort_hue_saturation_curves", lower=_lower_identity, apply=_apply_identity))
+register(EffectPort(handler="cohort_color_curves", lower=_lower_identity, apply=_apply_identity, overscan=OVERSCAN_EXTEND))
+register(EffectPort(handler="cohort_hue_saturation_curves", lower=_lower_identity, apply=_apply_identity, overscan=OVERSCAN_EXTEND))
 
 
 # --------------------------------------------------------------------------- Color Wheels (hue + colorbalance)
@@ -943,4 +1042,4 @@ def _apply_color_wheels(payload: ColorWheelsPayload, canvas: torch.Tensor, ctx: 
     return _from_code8(code)
 
 
-register(EffectPort(handler="color_wheels", lower=_lower_color_wheels, apply=_apply_color_wheels))
+register(EffectPort(handler="color_wheels", lower=_lower_color_wheels, apply=_apply_color_wheels, overscan=OVERSCAN_EXTEND))

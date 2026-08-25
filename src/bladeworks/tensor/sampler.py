@@ -43,9 +43,11 @@ Main callers:
 
 from __future__ import annotations
 
+from collections import OrderedDict
+
 import math
 from functools import lru_cache
-from typing import Optional
+from typing import Final, Optional
 
 import numpy as np
 import torch
@@ -486,27 +488,44 @@ def apply_display_rotation(source: torch.Tensor, rotation_degrees: int) -> torch
 # --------------------------------------------------------------------------- torch
 
 
+# How many distinct (height, width, device) centre grids ``GridCache`` keeps.
+# The steady state of a render is a handful of sizes (the output raster, each
+# retimed pad grid, a few fixed clip canvases); an effects-bearing clip with an
+# ANIMATED pan / zoom produces a differently-sized overscan surface on nearly
+# every frame (``renderer._overscan_surface``), and each 1920x1080-class centre
+# tensor is ~25 MB, so an unbounded dict would grow by the frame count.
+CENTRES_CACHE_LIMIT: Final[int] = 8
+
+
 class GridCache:
     """Homogeneous output pixel-centre grids per (height, width, device), plus per-key grids.
 
     ``grid_for(key, matrix, ...)`` returns the normalized sampling grid for
     ``matrix`` and reuses the previous one while the matrix is unchanged --
     static layers pay the grid build once, animated layers once per frame.
+
+    ``centres`` is a small LRU (``CENTRES_CACHE_LIMIT`` entries): the recurring
+    sizes stay hot, while the one-off sizes of a frame-varying overscan surface
+    are rebuilt (a cheap ``meshgrid``) instead of pinning device memory forever.
     """
 
     def __init__(self) -> None:
-        self._centres: dict[tuple[int, int, str], torch.Tensor] = {}
+        self._centres: OrderedDict[tuple[int, int, str], torch.Tensor] = OrderedDict()
         self._grids: dict[str, tuple[bytes, torch.Tensor]] = {}
 
     def centres(self, height: int, width: int, device: torch.device) -> torch.Tensor:
         key = (height, width, str(device))
         centres = self._centres.get(key)
-        if centres is None:
-            ys = torch.arange(height, dtype=torch.float32, device=device) + 0.5
-            xs = torch.arange(width, dtype=torch.float32, device=device) + 0.5
-            grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
-            centres = torch.stack((grid_x, grid_y, torch.ones_like(grid_x)), dim=-1).reshape(-1, 3)
-            self._centres[key] = centres
+        if centres is not None:
+            self._centres.move_to_end(key)
+            return centres
+        ys = torch.arange(height, dtype=torch.float32, device=device) + 0.5
+        xs = torch.arange(width, dtype=torch.float32, device=device) + 0.5
+        grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
+        centres = torch.stack((grid_x, grid_y, torch.ones_like(grid_x)), dim=-1).reshape(-1, 3)
+        self._centres[key] = centres
+        while len(self._centres) > CENTRES_CACHE_LIMIT:
+            self._centres.popitem(last=False)
         return centres
 
     def grid_for(

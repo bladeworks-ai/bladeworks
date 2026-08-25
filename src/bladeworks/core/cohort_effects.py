@@ -46,6 +46,8 @@ COHORT_EFFECT_HANDLERS = frozenset(
         "cohort_hue_saturation_curves",
         "cohort_drop_shadow",
         "cohort_crop_feather",
+        "cohort_visual_unshuffle_alpha_crop",
+        "cohort_visual_unshuffle_polygon_crop",
         "cohort_droplet",
         "cohort_earthquake",
         "cohort_fisheye",
@@ -131,8 +133,10 @@ def cohort_effect_filters(effect: ResolvedEffect) -> list[str]:
         return ["curves=master='0/0 1/1'"]
     if handler == "cohort_hue_saturation_curves":
         return ["huesaturation=colors=r+y+m:saturation=0:strength=0:lightness=0"]
-    if handler == "cohort_crop_feather":
+    if handler in {"cohort_crop_feather", "cohort_visual_unshuffle_alpha_crop"}:
         return [_crop_feather_filter(effect)]
+    if handler == "cohort_visual_unshuffle_polygon_crop":
+        return [_visual_unshuffle_polygon_crop_filter(effect)]
     if handler == "cohort_droplet":
         return [_droplet_filter(effect)]
     if handler == "cohort_earthquake":
@@ -376,8 +380,8 @@ def _crop_feather_filter(effect: ResolvedEffect) -> str:
     position = _vector(
         effect, "9999/988494964/100/988494966/1/100/101", "Position", (0.0, 0.0)
     )
-    cx = f"W*(0.5+{_number(position[0])})"
-    cy = f"H*(0.5-{_number(position[1])})"
+    cx = f"W*(0.5+({_number(position[0])}))"
+    cy = f"H*(0.5-({_number(position[1])}))"
     half_width = f"max(0.001,W*{_number(min(0.5, width * 1.607))})"
     half_height = f"max(0.001,H*{_number(min(0.5, height * 1.533))})"
     # Final Cut's zero-Roundness default is a rectangle; increasing Roundness
@@ -393,6 +397,23 @@ def _crop_feather_filter(effect: ResolvedEffect) -> str:
     # The genuine five-point response sweep established this direction.
     edge = max(0.001, (1.0 - feather) * 0.566)
     alpha = f"alpha(X,Y)*clip((1+{_number(edge)}-({distance}))/{_number(edge)},0,1)"
+    return _identity_rgb_with_alpha(alpha)
+
+
+def _visual_unshuffle_polygon_crop_filter(effect: ResolvedEffect) -> str:
+    """Return a hard alpha crop for one clockwise normalized quadrilateral."""
+    points = tuple(
+        _vector(effect, f"visual_unshuffle/point/{index}", f"Point {index}", default)
+        for index, default in enumerate(((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)))
+    )
+    half_planes = []
+    for (x0, y0), (x1, y1) in zip(points, points[1:] + points[:1]):
+        cross = (
+            f"(W*{_number(x1-x0)})*(Y-H*{_number(y0)})-"
+            f"(H*{_number(y1-y0)})*(X-W*{_number(x0)})"
+        )
+        half_planes.append(f"gte(({cross}),0)")
+    alpha = f"alpha(X,Y)*{'*'.join(half_planes)}"
     return _identity_rgb_with_alpha(alpha)
 
 

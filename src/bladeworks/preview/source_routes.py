@@ -70,7 +70,7 @@ def _if_match(value: str | None) -> str:
 
 
 def build_source_router(store: OpenedSourceStore) -> APIRouter:
-    """Build the five single-source routes around one opened store.
+    """Build the six single-source routes around one opened store.
 
     Main callers:
     - the production application factory, which includes this router once.
@@ -88,6 +88,26 @@ def build_source_router(store: OpenedSourceStore) -> APIRouter:
                 "ETag": f'"{result.status.disk_version}"',
                 **_status_headers(result.status),
             },
+        )
+
+    @router.get("/status")
+    async def get_source_status() -> JSONResponse:
+        """Return the JSON status (including the Project catalog) without bytes.
+
+        Why this exists:
+        ``GET /api/editor/source`` returns raw XML, so its status travels in
+        headers and cannot carry the per-Project catalog (``projects`` with
+        ``openable`` / ``error``). The browser parses the XML itself and would
+        otherwise happily auto-select a Project the renderer could not compile,
+        then fail on the first ``/api/editor/compatibility`` call. Studio reads
+        this route right after the XML and checks that ``diskVersion`` matches
+        the XML's ETag before trusting the catalog for that document.
+        """
+
+        status = store.status()
+        return JSONResponse(
+            content=_status_payload(status),
+            headers={"ETag": f'"{status.disk_version}"', **_status_headers(status)},
         )
 
     @router.put("")

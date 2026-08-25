@@ -196,19 +196,12 @@ def parse_fcpxml(path: Path, *, project: Optional[str] = None) -> SourceDocument
     """
 
     source_path, media_base_dir = _resolve_source_and_base(path)
-    try:
-        data = source_path.read_bytes()
-    except OSError as exc:
-        raise FCPXMLParseError(f"could not read FCPXML {source_path}: {exc}") from exc
+    data = _read_fcpxml_bytes(source_path)
     root = _parse_xml_root(data)
     version = root.get("version")
     if not version:
         raise FCPXMLParseError("fcpxml/@version is required")
-
-    resources_elements = [child for child in root if _tag(child) == "resources"]
-    if len(resources_elements) != 1:
-        raise FCPXMLParseError("document must contain exactly one top-level <resources>")
-    formats, assets, effects, multicams, other_resources = _parse_resources(resources_elements[0])
+    formats, assets, effects, multicams, other_resources = _parse_resource_tree(root)
 
     event, project_element = _select_project(root, project)
     sequences = [child for child in project_element if _tag(child) == "sequence"]
@@ -256,6 +249,87 @@ def parse_fcpxml(path: Path, *, project: Optional[str] = None) -> SourceDocument
         sequence_render_format=sequence.get("renderFormat"),
         media_base_dir=media_base_dir,
     )
+
+
+@dataclass(frozen=True)
+class ResourceDocument:
+    """A securely read FCPXML whose ``<resources>`` are parsed but NO Project is selected.
+
+    - ``source_path`` / ``media_base_dir``: the file actually read and the
+      directory bundle-relative media resolves against -- determined exactly
+      like ``parse_fcpxml`` does (``.fcpxmld`` bundle -> ``Info.fcpxml``).
+    - ``data``: the raw bytes read (callers preserving the ``<?xml?>`` /
+      ``<!DOCTYPE>`` prolog on write-back split them themselves).
+    - ``root``: the parsed, hardened ``<fcpxml>`` element. It is a plain
+      mutable ElementTree; ``assets`` only READ it, so a caller may edit it and
+      re-serialize.
+    - ``assets``: every ``<asset>`` as an ``AssetResource`` (``has_video``,
+      ``duration``, media reps, ...).
+    """
+
+    source_path: Path
+    media_base_dir: Path
+    data: bytes
+    root: ET.Element
+    assets: dict[str, AssetResource]
+
+
+def parse_fcpxml_resources(path: Path) -> ResourceDocument:
+    """Load a document's ``<resources>`` WITHOUT selecting a Project.
+
+    Main callers:
+    - ``core/proxy_media.generate_proxies`` (the ``bladeworks proxy`` command).
+
+    Why this exists: ``parse_fcpxml`` refuses a library holding several
+    Projects unless one is named, because a compile needs exactly one
+    timeline. A pass that is document-wide over ``<resources>`` (proxy
+    generation) has no timeline to pick, so forcing ``--project`` there would
+    be a spurious failure. This shares the SAME bundle resolution, XML
+    hardening, and resources validation as ``parse_fcpxml`` and simply stops
+    before the Project stage.
+    """
+
+    source_path, media_base_dir = _resolve_source_and_base(path)
+    data = _read_fcpxml_bytes(source_path)
+    root = _parse_xml_root(data)
+    _, assets, _, _, _ = _parse_resource_tree(root)
+    return ResourceDocument(
+        source_path=source_path,
+        media_base_dir=media_base_dir,
+        data=data,
+        root=root,
+        assets=assets,
+    )
+
+
+def _read_fcpxml_bytes(source_path: Path) -> bytes:
+    """Read the resolved FCPXML file, turning an OS failure into a parse error."""
+
+    try:
+        return source_path.read_bytes()
+    except OSError as exc:
+        raise FCPXMLParseError(f"could not read FCPXML {source_path}: {exc}") from exc
+
+
+def _parse_resource_tree(
+    root: ET.Element,
+) -> tuple[
+    dict[str, FormatResource],
+    dict[str, AssetResource],
+    dict[str, EffectResource],
+    dict[str, MulticamResource],
+    list[OtherResource],
+]:
+    """Validate that ``root`` holds exactly one ``<resources>`` and parse it.
+
+    Shared by ``parse_fcpxml`` (full compile) and ``parse_fcpxml_resources``
+    (Project-free resource pass) so both apply the identical structural check.
+    """
+
+    resources_elements = [child for child in root if _tag(child) == "resources"]
+    if len(resources_elements) != 1:
+        raise FCPXMLParseError("document must contain exactly one top-level <resources>")
+    return _parse_resources(resources_elements[0])
 
 
 def _resolve_source_and_base(path: Path) -> tuple[Path, Path]:
@@ -327,11 +401,7 @@ def read_fcpxml_root(path: Path) -> ET.Element:
     """
 
     source_path, _ = _resolve_source_and_base(path)
-    try:
-        data = source_path.read_bytes()
-    except OSError as exc:
-        raise FCPXMLParseError(f"could not read FCPXML {source_path}: {exc}") from exc
-    return _parse_xml_root(data)
+    return _parse_xml_root(_read_fcpxml_bytes(source_path))
 
 
 def enumerate_library_projects(root: ET.Element) -> list[LibraryProject]:

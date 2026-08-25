@@ -86,6 +86,18 @@ def relative_src_path(raw: Optional[str], base_dir: Optional[Path]) -> Optional[
     ``file_url_path`` and skipped here.
     """
 
+    candidate = _relative_src_candidate(raw, base_dir)
+    if candidate is None:
+        return None
+    resolved = candidate.resolve()
+    if resolved.is_file():
+        return resolved
+    return None
+
+
+def _relative_src_candidate(raw: Optional[str], base_dir: Optional[Path]) -> Optional[Path]:
+    """The path a bundle-relative ``src`` NAMES under ``base_dir`` -- unresolved, unchecked."""
+
     if not raw or base_dir is None:
         return None
     parsed = urlparse(raw)
@@ -96,36 +108,81 @@ def relative_src_path(raw: Optional[str], base_dir: Optional[Path]) -> Optional[
     rel = Path(unquote(parsed.path))
     if rel.is_absolute():
         return None
-    candidate = (base_dir / rel).resolve()
-    if candidate.is_file():
-        return candidate
-    return None
+    return base_dir / rel
+
+
+def lexical_src_path(raw: Optional[str], base_dir: Optional[Path]) -> Optional[Path]:
+    """The absolute path a media-rep ``src`` names, WITHOUT following symlinks.
+
+    ``file_url_path`` / ``relative_src_path`` answer "which real file is this?"
+    (the latter symlink-resolves). This answers "where does the document say
+    the file lives?" -- for a consolidated ``Media/clip.mov`` link that is the
+    bundle's ``Media/`` directory, not the external directory the link points
+    at. Existence is not checked here.
+
+    Main callers: ``core/proxy_media._choose_original_rep`` -- a generated proxy
+    must be PLACED beside the location the src names (so the injected
+    ``Media/clip.proxy.mp4`` locator actually exists), even though it is
+    ENCODED from the resolved target.
+    """
+
+    local = file_url_path(raw)
+    if local is not None:
+        return local
+    return _relative_src_candidate(raw, base_dir)
+
+
+def _representation_rank(kind: Optional[str], prefer: str) -> int:
+    """Preference rank for one ``media-rep`` (lower = more preferred).
+
+    Ties are broken by document order at the call site, so this only decides
+    which ``kind`` families jump the queue.
+
+    ``prefer == "original"`` (the default): a rep explicitly tagged
+    ``original-media`` outranks everything else, so a *disambiguated* original
+    always wins. When NO rep carries the ``original-media`` tag every rep ranks
+    the same and document order alone decides -- i.e. the historical "first
+    representation that resolves" behavior is preserved unchanged.
+
+    ``prefer == "proxy"``: proxy first, then original, then anything else --
+    proxy with a graceful fallback to the original, then to whatever resolves.
+    """
+
+    if prefer == "proxy":
+        return {"proxy-media": 0, "original-media": 1}.get(kind, 2)
+    return {"original-media": 0}.get(kind, 1)
 
 
 def resolve_asset(
     asset: AssetResource,
     bindings: Bindings,
     base_dir: Optional[Path] = None,
+    *,
+    prefer: str = "original",
 ) -> tuple[Optional[Path], Optional[AssetBinding]]:
     """Resolve one resource by explicit identity, then a concrete local file.
 
     Precedence, highest first:
 
     1. An explicit ``--bindings`` entry that matches the resource identity.
-    2. An ABSOLUTE ``file://`` media ``src`` that points at an existing file
-       (the pre-existing plain-``.fcpxml`` behavior).
-    3. A BUNDLE-RELATIVE media ``src`` resolved against ``base_dir`` (the
-       ``.fcpxmld`` bundle root or the plain file's parent directory).
+    2. Among the ``media-rep`` children whose ``src`` resolves to an existing
+       file, the one preferred by ``prefer`` (see ``_representation_rank``),
+       ties broken by document order. An ABSOLUTE ``file://`` src and a
+       BUNDLE-RELATIVE src (resolved against ``base_dir``) are both eligible.
+
+    ``prefer`` selects between an ``original-media`` and a ``proxy-media``
+    representation when an asset carries both. It only ever chooses among reps
+    that ALREADY resolve to a real file, so it never trades a present file for a
+    missing one -- the fallback is always "whatever we can actually find."
 
     Both fields on a binding are constraints. A binding that provides a UID and
     resource ID must match both, preventing a stale resource ID from silently
     redirecting a different stable media identity.
 
     ``base_dir`` is threaded in from ``SourceDocument.media_base_dir``. When no
-    binding matches and neither an absolute nor a relative src resolves to an
-    existing file, this returns ``(None, None)`` exactly as before -- NO
-    guessing, NO silent fallback -- and the compiler reports the missing media
-    loudly.
+    binding matches and no representation resolves to an existing file, this
+    returns ``(None, None)`` exactly as before -- NO guessing, NO silent
+    fallback -- and the compiler reports the missing media loudly.
     """
 
     matches: list[AssetBinding] = []
@@ -140,12 +197,21 @@ def resolve_asset(
     if matches:
         return matches[0].path, matches[0]
 
-    for representation in asset.media_representations:
+    # Collect every representation that resolves to a real file, tagged with its
+    # preference rank and document index, then pick the best (rank, index).
+    resolved: list[tuple[int, int, Path]] = []
+    for index, representation in enumerate(asset.media_representations):
         candidate = file_url_path(representation.src)
         if candidate is None:
             candidate = relative_src_path(representation.src, base_dir)
-        if candidate is not None and candidate.is_file():
-            return candidate.resolve(), AssetBinding(resource_id=asset.id, uid=asset.uid, path=candidate.resolve())
+        if candidate is None or not candidate.is_file():
+            continue
+        resolved.append((_representation_rank(representation.kind, prefer), index, candidate.resolve()))
+
+    if resolved:
+        resolved.sort(key=lambda item: (item[0], item[1]))
+        chosen = resolved[0][2]
+        return chosen, AssetBinding(resource_id=asset.id, uid=asset.uid, path=chosen)
     return None, None
 
 

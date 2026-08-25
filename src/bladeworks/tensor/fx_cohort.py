@@ -35,7 +35,7 @@ import torch
 from ..core.effect_parameters import unsupported_parameter_reason
 from ..core.model import ResolvedEffect
 from .color import code_to_premultiplied, premultiplied_to_code
-from .effects import ApplyContext, EffectPort, LowerContext, register
+from .effects import OVERSCAN_SPLICE, ApplyContext, EffectPort, LowerContext, register
 from .fx_basic import unsharp_luma
 from .fx_branched import overlay_yuva444p
 from .fx_color import BridgeLink, eq_process_lut, rgba8_to_yuva444p8, yuva444p8_to_rgba8
@@ -222,6 +222,7 @@ def _drawbox(
     color: tuple[int, int, int],
     alpha: float,
     thickness: int | None,
+    canvas: tuple[int, int, int, int] | None = None,
 ) -> torch.Tensor:
     """Draw one CPU-reference HUD rectangle on a straight RGBA8 frame.
 
@@ -229,10 +230,17 @@ def _drawbox(
     ``core.cohort_effects._camcorder_filters``. ``thickness=None`` means ``t=fill``.
     RGB is alpha-mixed in float32 and truncated exactly like packed-RGBA drawbox;
     the source alpha channel is unchanged.
+
+    ``canvas = (width, height, origin_x, origin_y)`` places the CLIP CANVAS when
+    ``rgba`` is an overscan surface: the normalized coordinates are relative to the
+    canvas and the box is clipped to the canvas (drawbox clips to its frame), so the
+    HUD never leaks into the overscan.  ``None`` means the frame is the canvas.
     """
 
-    _, frame_h, frame_w = rgba.shape
-    left, top = int(x * frame_w), int(y * frame_h)
+    _, surface_h, surface_w = rgba.shape
+    frame_w, frame_h, origin_x, origin_y = canvas if canvas is not None else (surface_w, surface_h, 0, 0)
+    canvas_left, canvas_top = -origin_x, -origin_y
+    left, top = int(x * frame_w) + canvas_left, int(y * frame_h) + canvas_top
     box_w, box_h = int(width * frame_w), int(height * frame_h)
     # No silent failures: a strictly-positive requested extent must never floor to
     # nothing. The normalized guide widths (thickness / max(ctx.width, 1)) round-trip
@@ -244,12 +252,13 @@ def _drawbox(
         box_w = max(1, box_w)
     if height > 0:
         box_h = max(1, box_h)
-    right, bottom = min(frame_w, left + max(0, box_w)), min(frame_h, top + max(0, box_h))
-    left, top = max(0, left), max(0, top)
+    right = min(canvas_left + frame_w, left + max(0, box_w))
+    bottom = min(canvas_top + frame_h, top + max(0, box_h))
+    left, top = max(canvas_left, left), max(canvas_top, top)
     if right <= left or bottom <= top or alpha <= 0.0:
         return rgba
-    ys = torch.arange(frame_h, device=rgba.device).view(-1, 1)
-    xs = torch.arange(frame_w, device=rgba.device).view(1, -1)
+    ys = torch.arange(surface_h, device=rgba.device).view(-1, 1)
+    xs = torch.arange(surface_w, device=rgba.device).view(1, -1)
     inside = (xs >= left) & (xs < right) & (ys >= top) & (ys < bottom)
     if thickness is not None:
         edge = max(1, thickness)
@@ -307,6 +316,7 @@ def _apply_camcorder(payload: CamcorderPayload, canvas: torch.Tensor, ctx: Apply
         (.655, .780, .055, .075, (255, 255, 255), secondary, thickness),
         (.670, .758, .025, .022, (255, 255, 255), secondary, None),
     )
+    placement = (ctx.width, ctx.height, ctx.origin_x, ctx.origin_y)
     for x, y, width, height, color, alpha, box_thickness in boxes:
         rgba = _drawbox(
             rgba,
@@ -317,6 +327,7 @@ def _apply_camcorder(payload: CamcorderPayload, canvas: torch.Tensor, ctx: Apply
             color=color,
             alpha=alpha,
             thickness=box_thickness,
+            canvas=placement,
         )
     return _canvas(rgba.round().to(torch.int32), canvas.dtype)
 
@@ -349,8 +360,9 @@ def _lower_focus_blur(effect: ResolvedEffect, ctx: LowerContext) -> FocusBlurPay
 def _apply_focus_blur(payload: FocusBlurPayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
     code = _rgba8(canvas)
     blurred_rgb = gblur_gbrap(code[:3], sigma=payload.sigma, sigma_v=payload.sigma, steps=2)
-    ys = torch.arange(ctx.height, device=canvas.device, dtype=canvas.dtype).view(-1, 1)
-    xs = torch.arange(ctx.width, device=canvas.device, dtype=canvas.dtype).view(1, -1)
+    # The focus ellipse is centred on and sized by the CLIP CANVAS; ``pixel_axes`` spans the
+    # whole surface in canvas coordinates so the ellipse continues into the overscan.
+    xs, ys = ctx.pixel_axes(canvas)
     radius_x = max(ctx.width * payload.width * 0.84, 1.0)
     radius_y = max(ctx.height * payload.height * 0.93, 1.0)
     distance = torch.sqrt(((xs - ctx.width * 0.5) / radius_x) ** 2 + ((ys - ctx.height * 0.5) / radius_y) ** 2)
@@ -398,7 +410,11 @@ def _apply_drop_shadow(payload: DropShadowPayload, canvas: torch.Tensor, ctx: Ap
     return _canvas(_over(shadow, code).to(torch.int32), canvas.dtype)
 
 
-register(EffectPort(handler=CARTOON_HANDLER, lower=_lower_cartoon, apply=_apply_cartoon))
-register(EffectPort(handler=CAMCORDER_HANDLER, lower=_lower_camcorder, apply=_apply_camcorder))
-register(EffectPort(handler=DROP_SHADOW_HANDLER, lower=_lower_drop_shadow, apply=_apply_drop_shadow))
-register(EffectPort(handler=FOCUS_BLUR_HANDLER, lower=_lower_focus_blur, apply=_apply_focus_blur))
+# All four blur (gblur / unsharp: frame-boundary dependent) or shift content, so the canvas
+# region comes from the crop run and the surface run supplies the overscan (``"splice"``).
+# Camcorder's HUD and Focus Blur's ellipse are drawn in clip-canvas coordinates on that
+# surface run, so nothing canvas-relative leaks into the overscan.
+register(EffectPort(handler=CARTOON_HANDLER, lower=_lower_cartoon, apply=_apply_cartoon, overscan=OVERSCAN_SPLICE))
+register(EffectPort(handler=CAMCORDER_HANDLER, lower=_lower_camcorder, apply=_apply_camcorder, overscan=OVERSCAN_SPLICE))
+register(EffectPort(handler=DROP_SHADOW_HANDLER, lower=_lower_drop_shadow, apply=_apply_drop_shadow, overscan=OVERSCAN_SPLICE))
+register(EffectPort(handler=FOCUS_BLUR_HANDLER, lower=_lower_focus_blur, apply=_apply_focus_blur, overscan=OVERSCAN_SPLICE))

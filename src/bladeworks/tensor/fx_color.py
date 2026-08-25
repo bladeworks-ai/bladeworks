@@ -154,7 +154,7 @@ import torch
 from ..core.color import color_effect_filters
 from ..core.model import ResolvedEffect
 from .color import code_to_premultiplied, premultiplied_to_code
-from .effects import ApplyContext, EffectPort, LowerContext, register
+from .effects import OVERSCAN_EXTEND, ApplyContext, EffectPort, LowerContext, register
 from .support import reject
 
 # --------------------------------------------------------------------------- swscale model
@@ -847,5 +847,6 @@ def _apply_color(payload: ColorPipelinePayload, canvas: torch.Tensor, ctx: Apply
     return code_to_premultiplied(rgba8.to(canvas.dtype))
 
 
-register(EffectPort(handler="color_adjustments", lower=_lower_color, apply=_apply_color))
-register(EffectPort(handler="color_board", lower=_lower_color, apply=_apply_color))
+# Per-pixel LUT / bridge / balance stages: bit-identical on any surface (``"extend"``).
+register(EffectPort(handler="color_adjustments", lower=_lower_color, apply=_apply_color, overscan=OVERSCAN_EXTEND))
+register(EffectPort(handler="color_board", lower=_lower_color, apply=_apply_color, overscan=OVERSCAN_EXTEND))

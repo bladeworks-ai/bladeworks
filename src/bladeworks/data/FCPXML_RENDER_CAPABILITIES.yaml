@@ -308,6 +308,43 @@
       "approximation": "rounded-superellipse alpha crop with a bounded linear feather"
     },
     {
+      "id": "effect-visual-unshuffle-alpha-crop",
+      "kind": "video_filter",
+      "uid": "SpellEffect:VisualUnshuffleAlphaCrop:v1",
+      "aliases": ["Visual Unshuffle Alpha Crop"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_visual_unshuffle_alpha_crop",
+      "parameters": {
+        "9999/989379745/100/989379746/2/100": {"name": "Width", "type": "scalar", "default": 0.25, "minimum": 0, "maximum": 1, "units": "normalized frame width", "keyframes": false},
+        "9999/989379745/100/989379838/2/100": {"name": "Height", "type": "scalar", "default": 0.25, "minimum": 0, "maximum": 1, "units": "normalized frame height", "keyframes": false},
+        "9999/989379745/100/989379995/2/100": {"name": "Feather", "type": "scalar", "default": 1, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": false},
+        "9999/988494964/100/988494966/2/353/144": {"name": "Roundness", "type": "scalar", "default": 1, "minimum": 0, "maximum": 1, "units": "normalized", "keyframes": false},
+        "9999/988494964/100/988494966/1/100/101": {"name": "Position", "type": "position", "components": 2, "default": [0, 0], "minimum": -0.5, "maximum": 0.5, "units": "normalized frame offset", "keyframes": false}
+      },
+      "calibration_fixtures": [],
+      "omission": "reject malformed controls rather than guessing an alpha region",
+      "approximation": "Bladeworks numeric hard-edged superellipse alpha crop for generated BladeFrame drills"
+    },
+    {
+      "id": "effect-visual-unshuffle-polygon-crop",
+      "kind": "video_filter",
+      "uid": "SpellEffect:VisualUnshufflePolygonCrop:v1",
+      "aliases": ["Visual Unshuffle Polygon Crop"],
+      "authoring_status": "authorable",
+      "portable_status": "calibrated_portable",
+      "handler": "cohort_visual_unshuffle_polygon_crop",
+      "parameters": {
+        "visual_unshuffle/point/0": {"name": "Point 0", "type": "position", "components": 2, "minimum": 0, "maximum": 1, "keyframes": false},
+        "visual_unshuffle/point/1": {"name": "Point 1", "type": "position", "components": 2, "minimum": 0, "maximum": 1, "keyframes": false},
+        "visual_unshuffle/point/2": {"name": "Point 2", "type": "position", "components": 2, "minimum": 0, "maximum": 1, "keyframes": false},
+        "visual_unshuffle/point/3": {"name": "Point 3", "type": "position", "components": 2, "minimum": 0, "maximum": 1, "keyframes": false}
+      },
+      "calibration_fixtures": [],
+      "omission": "reject malformed or non-convex points rather than guessing an alpha region",
+      "approximation": "Bladeworks numeric hard-edged convex quadrilateral alpha crop for generated BladeFrame drills"
+    },
+    {
       "id": "effect-droplet-cohort",
       "kind": "video_filter",
       "uid": ".../Effects.localized/Distortion.localized/Droplet.localized/Droplet.moef",

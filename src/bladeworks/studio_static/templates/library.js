@@ -41,17 +41,31 @@ function libraryTreeTemplate(library, selectedProjectId, selectedEventId, expand
           <span class="event-disclosure">${icon(expanded ? "disclosure-open" : "disclosure-closed")}</span>${icon("event-grid")}<span>${escapeHtml(event.name)}</span>
         </button>
         ${expanded && event.projects.length ? `<div class="project-tree-list">
-          ${event.projects.map((project) => `
-            <button class="project-tree-row ${project.id === selectedProjectId ? "selected-project" : ""}" data-action="select-project" data-project-id="${project.id}" title="${escapeHtml(project.name)}">
-              ${project.proposal ? icon("sparkle") : icon("project")}
-              <span>${escapeHtml(project.name)}</span>
-            </button>
-          `).join("")}
+          ${event.projects.map((project) => projectTreeRowTemplate(project, project.id === selectedProjectId)).join("")}
         </div>` : ""}
       </section>
     `;
     }).join("")}
   `;
+}
+/**
+ * One Project row. A Project the renderer could not compile (`openError` set)
+ * is rendered greyed with the error as its tooltip; it keeps the
+ * select-project action so a click explains the refusal instead of silently
+ * doing nothing (BladeworksEditorApp.selectProject shows the toast).
+ */
+function projectTreeRowTemplate(project, selected) {
+    const unopenable = project.openError !== null;
+    const classes = ["project-tree-row", selected ? "selected-project" : "", unopenable ? "unopenable" : ""]
+        .filter(Boolean)
+        .join(" ");
+    const title = unopenable ? `Cannot open ${project.name}: ${project.openError}` : project.name;
+    return `
+            <button class="${classes}" data-action="select-project" data-project-id="${project.id}" title="${escapeHtml(title)}" aria-disabled="${unopenable}">
+              ${project.proposal ? icon("sparkle") : icon("project")}
+              <span>${escapeHtml(project.name)}</span>
+            </button>
+          `;
 }
 function sourceShelfTemplate(_source) {
     return `<div class="source-shelf">

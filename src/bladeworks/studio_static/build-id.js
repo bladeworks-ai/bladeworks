@@ -1,1 +1,1 @@
-globalThis.__BLADEFRAME_STUDIO_BUILD__ = "4f8698c645";
+globalThis.__BLADEWORKS_STUDIO_BUILD__ = "6c1e61af67";

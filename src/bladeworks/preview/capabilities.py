@@ -35,6 +35,7 @@ from ..tensor.effects import EFFECT_PORTS
 from ..tensor.tr_equirect import ADMITTED_EQUIRECT_IDS
 from ..tensor.tr_phase5 import PHASE5_IDS
 from ..tensor.resolution import DEFAULT_PROFILE, SUPPORTED_PROFILES, RenderMode
+from ..tensor.decode import SUPPORTED_PIXEL_FORMATS
 from ..tensor.transitions import ADMITTED_XFADE_IDS, HANDLERS
 from .render_jobs import STUDIO_EXPORT_PROFILES
 
@@ -398,7 +399,7 @@ def bladeworks_capabilities() -> dict[str, Any]:
         },
         "media": {
             "support": "exact",
-            "decodedPixelFormats": ["yuv420p", "yuv422p", "yuv444p", "yuvj420p", "yuvj422p", "yuvj444p", "yuv420p10le", "yuv422p10le", "yuv444p10le", "yuv444p12le"],
+            "decodedPixelFormats": list(SUPPORTED_PIXEL_FORMATS),
             "colorMatrices": ["bt709", "bt601", "smpte170m", "bt2020nc"],
             "hdrInputTransfers": ["arib-std-b67", "smpte2084"],
             "missingMedia": "placeholder_video_and_silent_audio",
@@ -438,6 +439,7 @@ def bladeworks_capabilities() -> dict[str, Any]:
             {"id": "nonCustomSolidGenerators", "category": "generator", "reason": "Only Custom Solid generators render."},
             {"id": "surroundAudio", "category": "audio", "reason": "5.1 output rejects before delivery planning."},
             {"id": "hdrDelivery", "category": "export", "reason": "HDR input is tone-mapped to SDR; HDR output is not offered."},
+            {"id": "hdrAlphaSource", "category": "media", "reason": "HDR video carrying alpha rejects during source planning."},
             {"id": "oracleMezzanine", "category": "export", "reason": "The tensor encoder has no ProRes 4:2:2 10-bit exit; the legacy CPU-only oracle profile is not a Studio capability."},
             {"id": "crossChannelBlendModes", "category": "blend", "reason": "Hue, Saturation, Color and Luminosity blend modes reject."},
         ],

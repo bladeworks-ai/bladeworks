@@ -47,6 +47,29 @@ Port contract
   this module imports the port modules at the bottom.  Registering a handler twice is an
   error (one owner per handler).
 
+Effect surface vs clip canvas (overscan)
+----------------------------------------
+The staged leaf path may hand ``apply_effects`` a surface LARGER than the clip canvas: the
+conform's overscan (a portrait ``fill``, a Crop / Ken-Burns camera) is kept so a later pan or
+zoom samples real image (``renderer._overscan_surface``).  Every reference filter, however,
+was calibrated on the CLIP CANVAS raster: vignette / mask centres, noise row shifts, the
+pixelize grid, blur boundary handling, HUD placement ... all read the canvas geometry.  So
+``apply_effects`` takes a ``CanvasPlacement`` (where the canvas sits on the surface) and:
+
+* ``ApplyContext.width`` / ``height`` are ALWAYS the clip canvas; ``origin_x`` / ``origin_y``
+  is the clip-canvas coordinate of surface pixel (0, 0) (``<= 0``).  A port reads the
+  surface size from the tensor and its coordinate system from the context
+  (``ApplyContext.pixel_axes``).
+* each ``EffectPort`` declares an ``overscan`` policy (see ``EffectPort``): ``"extend"`` runs
+  the port once on the whole surface (the port proves its canvas region is byte-identical to a
+  canvas-only run), ``"splice"`` runs the port on the canvas crop (byte-exact, the pre-overscan
+  path) AND on the whole surface, keeping the surface run only outside the canvas, and
+  ``"crop"`` runs the canvas crop only (the overscan passes through unchanged).
+
+Invariant (guarded by ``test_tensor_overscan_surface.py``): the canvas region of the output is
+byte-identical to running the same chain on the canvas crop, for every policy.  When the
+surface IS the canvas (the default placement) every policy collapses to one plain run.
+
 Main callers:
 - ``plan.build_tensor_plan`` (``lower_effect`` for leaf effects, ``_effect_specs`` for
   folded group effects).
@@ -71,6 +94,7 @@ import torch.nn.functional as F
 
 from ..core.model import ResolvedEffect
 from ..core.retime import RetimeMap
+from .expr import Environment, Expr, bilinear_sampler, evaluate_image, geq_rgba, pixel_grid, quantize_uint8
 from .fx_mask import MaskEffectPayload, apply_masked_effect
 from .fx_keyer import lower_green_screen_keyer, green_screen_key
 from .support import reject
@@ -105,13 +129,74 @@ class LowerContext:
 
 
 @dataclass(frozen=True)
+class CanvasPlacement:
+    """Where the clip canvas sits on the surface ``apply_effects`` is given (see module doc).
+
+    ``origin_x`` / ``origin_y`` is the clip-canvas coordinate of the surface's top-left pixel,
+    so surface column ``i`` is clip-canvas column ``i + origin_x``.  The surface must contain
+    the whole canvas (``origin <= 0`` and ``-origin + canvas <= surface``); ``apply_effects``
+    checks that loudly.  ``renderer._overscan_surface`` produces exactly such placements.
+    """
+
+    width: int      # clip canvas width
+    height: int     # clip canvas height
+    origin_x: int = 0
+    origin_y: int = 0
+
+
+@dataclass(frozen=True)
 class ApplyContext:
-    """Per-frame facts for ``EffectPort.apply``."""
+    """Per-frame facts for ``EffectPort.apply``.
+
+    ``width`` / ``height`` are the CLIP CANVAS the reference filter was calibrated on, never
+    the surface size (read that from the tensor).  ``origin_x`` / ``origin_y`` place the
+    surface in clip-canvas coordinates (``CanvasPlacement``); both are 0 in the common case
+    where the surface is the canvas.
+    """
 
     frame: int          # layer-local frame counter (``N``): 0 at the layer's frame origin
     seconds: float      # ``T`` = frame * frame_duration
     width: int
     height: int
+    origin_x: int = 0
+    origin_y: int = 0
+
+    def is_whole_surface(self, canvas: torch.Tensor) -> bool:
+        """True when ``canvas`` is exactly the clip canvas (no overscan on this surface)."""
+
+        return (
+            self.origin_x == 0
+            and self.origin_y == 0
+            and int(canvas.shape[1]) == self.height
+            and int(canvas.shape[2]) == self.width
+        )
+
+    def canvas_slices(self) -> tuple[slice, slice]:
+        """``(rows, cols)`` of the clip canvas region on the surface."""
+
+        return (
+            slice(-self.origin_y, -self.origin_y + self.height),
+            slice(-self.origin_x, -self.origin_x + self.width),
+        )
+
+    def on_canvas(self) -> "ApplyContext":
+        """The context for a run on the canvas crop itself (origin 0)."""
+
+        return replace(self, origin_x=0, origin_y=0)
+
+    def pixel_axes(self, canvas: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Clip-canvas pixel coordinates of the surface's columns and rows.
+
+        Returns ``(xs, ys)`` shaped ``[1, surface_w]`` and ``[surface_h, 1]`` in the tensor's
+        dtype/device: ``xs[0, i] == i + origin_x``.  On the canvas itself this is the plain
+        ``arange`` every port used before overscan existed, so an integer-origin offset keeps
+        the canvas region's values bit-identical.
+        """
+
+        surface_h, surface_w = int(canvas.shape[1]), int(canvas.shape[2])
+        xs = torch.arange(surface_w, device=canvas.device, dtype=canvas.dtype) + self.origin_x
+        ys = torch.arange(surface_h, device=canvas.device, dtype=canvas.dtype) + self.origin_y
+        return xs.view(1, -1), ys.view(-1, 1)
 
 
 @dataclass(frozen=True)
@@ -124,11 +209,37 @@ class EffectSpec:
     payload: Any
 
 
+# ``EffectPort.overscan`` policies (module doc, "Effect surface vs clip canvas").
+OVERSCAN_EXTEND: Final[str] = "extend"   # one run on the whole surface; the port honours ctx canvas coords
+OVERSCAN_SPLICE: Final[str] = "splice"   # canvas crop run (exact) + surface run for the overscan pixels
+OVERSCAN_CROP: Final[str] = "crop"       # canvas crop run only; overscan pixels pass through untouched
+_OVERSCAN_POLICIES: Final[frozenset[str]] = frozenset((OVERSCAN_EXTEND, OVERSCAN_SPLICE, OVERSCAN_CROP))
+
+
 @dataclass(frozen=True)
 class EffectPort:
+    """One ported handler.
+
+    ``overscan`` says how the port behaves on a surface larger than the clip canvas:
+
+    * ``"extend"`` -- the port's output at canvas pixels is bit-identical whether it runs on
+      the crop or on the surface (pointwise kernels, or kernels re-expressed in clip-canvas
+      coordinates through ``ApplyContext``).  One run on the whole surface.
+    * ``"splice"`` -- the canvas output depends on the canvas boundary (blur recursions,
+      replicate padding, clamped taps, edge blocks ...) so it cannot be reproduced on the
+      surface.  The crop run supplies the canvas region, a second, canvas-coordinate-aware
+      surface run supplies the overscan.  Costs two runs when overscan is present.
+    * ``"crop"`` -- the port cannot sensibly continue into the overscan at all (it paints a
+      canvas-relative composition).  Crop run only; the overscan keeps the input pixels.
+
+    The safe default is ``"crop"``: never wrong on the canvas, never paints artefacts outside
+    it.  Every registered port sets its policy explicitly.
+    """
+
     handler: str
     lower: Callable[[ResolvedEffect, LowerContext], Any]
     apply: Callable[[Any, torch.Tensor, ApplyContext], torch.Tensor]
+    overscan: str = OVERSCAN_CROP
 
 
 EFFECT_PORTS: Final[dict[str, EffectPort]] = {}
@@ -137,6 +248,8 @@ EFFECT_PORTS: Final[dict[str, EffectPort]] = {}
 def register(port: EffectPort) -> EffectPort:
     if port.handler in EFFECT_PORTS:
         raise AssertionError(f"effect port {port.handler!r} registered twice")
+    if port.overscan not in _OVERSCAN_POLICIES:
+        raise AssertionError(f"effect port {port.handler!r}: unknown overscan policy {port.overscan!r}")
     EFFECT_PORTS[port.handler] = port
     return port
 
@@ -202,56 +315,155 @@ def apply_effects(
     *,
     frame: int,
     frame_duration: Fraction,
+    placement: Optional[CanvasPlacement] = None,
 ) -> torch.Tensor:
-    """Run the layer's lowered effects in order on its conformed premultiplied-linear canvas."""
+    """Run the layer's lowered effects in order on its conformed premultiplied-linear canvas.
 
-    _, height, width = canvas.shape
-    for spec in effects:
-        local = frame - spec.frame_origin
-        ctx = ApplyContext(
-            frame=local,
-            seconds=float(local * frame_duration),
-            width=width,
-            height=height,
+    ``placement`` says where the clip canvas sits when ``canvas`` is an overscan-preserving
+    surface (module doc); ``None`` means the tensor IS the clip canvas.
+    """
+
+    surface_h, surface_w = int(canvas.shape[1]), int(canvas.shape[2])
+    if placement is None:
+        placement = CanvasPlacement(width=surface_w, height=surface_h)
+    elif (
+        placement.origin_x > 0
+        or placement.origin_y > 0
+        or -placement.origin_x + placement.width > surface_w
+        or -placement.origin_y + placement.height > surface_h
+    ):
+        raise ValueError(
+            f"effect surface {surface_w}x{surface_h} does not contain the clip canvas "
+            f"{placement.width}x{placement.height} at origin ({placement.origin_x}, {placement.origin_y})"
         )
-        if spec.handler == "masked_effect":
-            canvas = apply_masked_effect(
-                spec.payload,
-                canvas,
-                frame=frame,
-                seconds=ctx.seconds,
-                apply_effect=lambda nested, pixels, nested_frame: _apply_one(
-                    nested, pixels, nested_frame, frame_duration
-                ),
-            )
-        else:
-            canvas = _apply_one(spec, canvas, frame, frame_duration)
+    for spec in effects:
+        canvas = _apply_one(spec, canvas, frame, frame_duration, placement)
     return canvas
 
 
-def _apply_one(spec: EffectSpec, canvas: torch.Tensor, frame: int, frame_duration: Fraction) -> torch.Tensor:
-    """Apply one non-branching port, or recurse for a nested mask branch."""
+def _apply_one(
+    spec: EffectSpec,
+    canvas: torch.Tensor,
+    frame: int,
+    frame_duration: Fraction,
+    placement: CanvasPlacement,
+) -> torch.Tensor:
+    """Apply one port under its overscan policy, or recurse for a nested mask branch."""
 
-    width, height = int(canvas.shape[2]), int(canvas.shape[1])
     local = frame - spec.frame_origin
     ctx = ApplyContext(
         frame=local,
         seconds=float(local * frame_duration),
-        width=width,
-        height=height,
+        width=placement.width,
+        height=placement.height,
+        origin_x=placement.origin_x,
+        origin_y=placement.origin_y,
     )
     if spec.handler == "masked_effect":
+        # The matte is geometric on the clip canvas (fx_mask takes the placement); the
+        # branches run on the same surface through this dispatcher, policy included.
         return apply_masked_effect(
             spec.payload,
             canvas,
             frame=frame,
             seconds=ctx.seconds,
             apply_effect=lambda nested, pixels, nested_frame: _apply_one(
-                nested, pixels, nested_frame, frame_duration
+                nested, pixels, nested_frame, frame_duration, placement
             ),
+            canvas_rect=(placement.width, placement.height, placement.origin_x, placement.origin_y),
         )
-    port = EFFECT_PORTS[spec.handler]
-    return port.apply(spec.payload, canvas, ctx)
+    return _apply_port(EFFECT_PORTS[spec.handler], spec.payload, canvas, ctx)
+
+
+def _apply_port(port: EffectPort, payload: Any, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
+    """Run one port on ``canvas`` under ``port.overscan`` (see ``EffectPort``).
+
+    Pythonese:
+    1. If the surface is the clip canvas, or the port extends into overscan exactly, run it
+       once on the whole tensor.
+    2. Otherwise run it on the canvas crop with an origin-0 context: that is byte-for-byte the
+       pre-overscan computation, so the canvas region is exact by construction.
+    3. ``"splice"``: also run it on the whole surface (canvas-coordinate context) and take the
+       overscan pixels from that run.  ``"crop"``: the overscan keeps the input pixels.
+    4. Paste the exact canvas result into a fresh tensor (never in place: a mask branch still
+       reads the unmodified input for its outside branch).
+    """
+
+    if port.overscan == OVERSCAN_EXTEND or ctx.is_whole_surface(canvas):
+        return port.apply(payload, canvas, ctx)
+    rows, cols = ctx.canvas_slices()
+    exact = port.apply(payload, canvas[:, rows, cols], ctx.on_canvas())
+    if port.overscan == OVERSCAN_SPLICE:
+        out = port.apply(payload, canvas, ctx).clone()
+    else:
+        out = canvas.clone()
+    out[:, rows, cols] = exact
+    return out
+
+
+def geq_rgba_canvas(
+    expressions: Mapping[str, Expr],
+    source_rgba: torch.Tensor,
+    ctx: ApplyContext,
+) -> torch.Tensor:
+    """``expr.geq_rgba`` in CLIP-CANVAS coordinates on a possibly larger surface.
+
+    On the canvas itself this IS ``geq_rgba`` (same call, byte-identical).  On an overscan
+    surface the expressions see ``X``/``Y`` as clip-canvas coordinates and ``W``/``H`` as the
+    clip canvas, and the ``r/g/b/alpha/p`` samplers take clip-canvas positions (translated onto
+    the surface, then clamped to the surface like ``vf_geq.c`` clamps to its frame).  So a
+    centre-relative warp (fisheye, kaleidoscope), a frame-relative matte (crop & feather,
+    vignette mask) or a mirror keeps its canvas geometry and simply continues outward, reading
+    the real overscan image where its taps fall outside the canvas.
+
+    Canvas pixels whose taps fall outside the canvas read real pixels here instead of the
+    clamped canvas edge, so this is NOT canvas-exact for such ports -- they register as
+    ``"splice"`` (the crop run supplies the canvas).  Ports whose taps never leave the canvas
+    (threshold, mirror) are exact and register as ``"extend"``.
+
+    Main callers: ``fx_basic`` (threshold / mirror) and ``fx_warp`` (the E2 geq cohort).
+    """
+
+    if ctx.is_whole_surface(source_rgba):
+        return geq_rgba(expressions, source_rgba, frame_number=ctx.frame, time_seconds=ctx.seconds)
+    missing = [key for key in ("r", "g", "b", "a") if key not in expressions]
+    if missing:
+        raise ValueError(f"geq needs expressions for r, g, b and a; missing {missing}")
+    _, surface_h, surface_w = source_rgba.shape
+    device, dtype = source_rgba.device, source_rgba.dtype
+    grid_x, grid_y = pixel_grid(surface_h, surface_w, device=device, dtype=dtype)
+    grid_x = grid_x + ctx.origin_x
+    grid_y = grid_y + ctx.origin_y
+
+    def canvas_sampler(plane: torch.Tensor) -> Callable[[Any, Any], torch.Tensor]:
+        surface_sample = bilinear_sampler(plane)
+
+        def sample(x: Any, y: Any) -> torch.Tensor:
+            return surface_sample(x - ctx.origin_x, y - ctx.origin_y)
+
+        return sample
+
+    channel_samplers = {
+        "r": canvas_sampler(source_rgba[0]),
+        "g": canvas_sampler(source_rgba[1]),
+        "b": canvas_sampler(source_rgba[2]),
+        "alpha": canvas_sampler(source_rgba[3]),
+    }
+    out = torch.empty_like(source_rgba)
+    for channel_index, key in enumerate(("r", "g", "b", "a")):
+        samplers = dict(channel_samplers)
+        samplers["p"] = channel_samplers["alpha" if key == "a" else key]
+        env = Environment(
+            variables={
+                "X": grid_x, "Y": grid_y, "W": float(ctx.width), "H": float(ctx.height),
+                "N": float(ctx.frame), "T": float(ctx.seconds), "SW": 1.0, "SH": 1.0,
+            },
+            samplers=samplers,
+            device=device,
+            dtype=dtype,
+        )
+        out[channel_index] = quantize_uint8(evaluate_image(expressions[key], env, (surface_h, surface_w)))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -286,10 +498,15 @@ def _lower_earthquake(effect: ResolvedEffect, ctx: LowerContext) -> EarthquakePa
 
 
 def _apply_earthquake(payload: EarthquakePayload, canvas: torch.Tensor, ctx: ApplyContext) -> torch.Tensor:
+    # The displacement is a fraction of the CLIP CANVAS (``W*amp`` in the geq), the sampling
+    # grid spans whatever surface is given and clamps to ITS edges -- so on an overscan
+    # surface the shake reads the real image beyond the canvas.  Canvas pixels near the canvas
+    # edge therefore differ from the canvas-only run (real pixels instead of the clamped edge):
+    # the port is ``"splice"`` and the crop run supplies the canvas region.
     _, height, width = canvas.shape
     n = ctx.frame
-    dx = width * payload.amplitude * (math.sin(n * 1.71 + payload.phase_x) + 0.35 * math.sin(n * 4.13))
-    dy = height * payload.amplitude * (math.cos(n * 1.37 + payload.phase_y) + 0.35 * math.sin(n * 3.29))
+    dx = ctx.width * payload.amplitude * (math.sin(n * 1.71 + payload.phase_x) + 0.35 * math.sin(n * 4.13))
+    dy = ctx.height * payload.amplitude * (math.cos(n * 1.37 + payload.phase_y) + 0.35 * math.sin(n * 3.29))
     # Normalized sampling grid: destination pixel (x, y) reads source (x+dx, y+dy).
     ys = torch.arange(height, device=canvas.device, dtype=canvas.dtype)
     xs = torch.arange(width, device=canvas.device, dtype=canvas.dtype)
@@ -302,7 +519,14 @@ def _apply_earthquake(payload: EarthquakePayload, canvas: torch.Tensor, ctx: App
     ).squeeze(0)
 
 
-register(EffectPort(handler="cohort_earthquake", lower=_lower_earthquake, apply=_apply_earthquake))
+register(
+    EffectPort(
+        handler="cohort_earthquake",
+        lower=_lower_earthquake,
+        apply=_apply_earthquake,
+        overscan=OVERSCAN_SPLICE,
+    )
+)
 
 
 register(
@@ -310,6 +534,7 @@ register(
         handler="green_screen_keyer",
         lower=lower_green_screen_keyer,
         apply=lambda payload, canvas, _ctx: green_screen_key(canvas, payload),
+        overscan=OVERSCAN_EXTEND,  # pointwise key / despill
     )
 )
 

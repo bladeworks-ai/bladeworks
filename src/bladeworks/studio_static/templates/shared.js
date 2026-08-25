@@ -30,7 +30,7 @@ export function assetVisualIndex(assetId) {
     return hash;
 }
 export function studioBuildId() {
-    const build = globalThis.__BLADEFRAME_STUDIO_BUILD__;
+    const build = globalThis.__BLADEWORKS_STUDIO_BUILD__;
     return build && /^[a-f0-9]{10}$/.test(build) ? build : "development";
 }
 export function createPopover(activePopover, hasLibrary) {

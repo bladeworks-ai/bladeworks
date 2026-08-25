@@ -26,6 +26,7 @@ import os
 import tempfile
 import threading
 import weakref
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -65,6 +66,11 @@ class ProjectCatalogEntry:
     project_name: str | None
     uid: str | None
     degraded: bool
+    # When a single Project fails to compile (an unsupported construct, a bad
+    # reference), it is still listed here so the whole library stays openable --
+    # ``error`` carries the reason and marks the entry unopenable. ``None`` means
+    # the Project compiled and can be selected.
+    error: str | None = None
 
     def payload(self) -> dict[str, object]:
         return {
@@ -74,16 +80,51 @@ class ProjectCatalogEntry:
             "projectName": self.project_name,
             "uid": self.uid,
             "degraded": self.degraded,
+            "openable": self.error is None,
+            "error": self.error,
         }
+
+
+def _canonical_project_xml(project: ET.Element) -> str:
+    """Content identity of one ``<project>`` subtree, independent of formatting.
+
+    C14N (``ET.canonicalize``) normalizes attribute order, quoting, and
+    insignificant whitespace, so a Project that survived a Studio round-trip
+    untouched (the browser patches the parsed DOM in place and re-serializes
+    it) compares equal to the bytes it was loaded from, while any real edit
+    inside the Project changes the string.
+
+    Main callers: ``OpenedSourceStore._compile_path`` -- both to RECORD the
+    identity of a Project that failed to compile and to CHECK a later failing
+    Project against those records (see ``LoadedLibrary.frozen_projects``).
+    """
+
+    return ET.canonicalize(ET.tostring(project, encoding="unicode"), strip_text=True)
 
 
 @dataclass(frozen=True)
 class LoadedLibrary:
-    """Every Project compiled from one exact complete-library byte string."""
+    """Every Project compiled from one exact complete-library byte string.
+
+    ``frozen_projects`` holds the canonical XML (``_canonical_project_xml``) of
+    every Project that did NOT compile and was tolerated as an unopenable
+    catalog entry -- in THIS library version or any earlier one this session.
+    Those Projects are READ-ONLY for the rest of the session: a later source
+    replacement may keep them verbatim (still tolerated) but any change to
+    their XML is rejected, because there is no compile to validate the edit
+    against. Identity is by content, not by position or uid, so reordering or
+    renaming sibling Projects never spoofs or breaks the rule.
+
+    The set only ever grows: an identity tolerated once stays tolerated, so
+    that after an edit FIXES the bad Project, undoing that edit (which restores
+    the exact tolerated XML) is still accepted rather than rejected as a new
+    ``source_invalid`` Project.
+    """
 
     version: str
     projects: tuple[LoadedProject, ...]
     catalog: tuple[ProjectCatalogEntry, ...]
+    frozen_projects: frozenset[str] = frozenset()
 
     @property
     def degraded(self) -> bool:
@@ -201,6 +242,10 @@ class OpenedSourceStore:
             candidate_path=source_path,
             canonical_path=source_path,
             strict=strict,
+            # Initial open tolerates any bad Project so the library still opens;
+            # from then on those Projects are read-only and every other Project
+            # must compile on each replacement (see _compile_path).
+            initial_open=True,
         )
         history = SessionHistory(history_directory, limit=history_limit)
         history.initialize(xml, version=loaded.version)
@@ -255,6 +300,7 @@ class OpenedSourceStore:
                     candidate_path=candidate_path,
                     canonical_path=self.source_path,
                     strict=self.strict,
+                    previous=self._loaded,
                 )
                 latest_xml = self._read_live_bytes()
                 latest_version = source_version(latest_xml)
@@ -394,10 +440,18 @@ class OpenedSourceStore:
         self._disk_version = version
         candidate_path = self._write_candidate(xml)
         try:
+            # An external write (Final Cut re-export, a hand edit) is the
+            # source of truth, exactly like the bytes at initial open: a
+            # Project it leaves uncompilable is tolerated as an unopenable,
+            # read-only catalog entry rather than wedging every later save
+            # behind ``source_invalid`` until Studio is restarted on the very
+            # same bytes.
             loaded = self._compile_path(
                 candidate_path=candidate_path,
                 canonical_path=self.source_path,
                 strict=self.strict,
+                initial_open=True,
+                previous=self._loaded,
             )
         except PreviewAPIError as error:
             self._compile_error = error.message
@@ -440,6 +494,7 @@ class OpenedSourceStore:
                 candidate_path=candidate_path,
                 canonical_path=self.source_path,
                 strict=self.strict,
+                previous=self._loaded,
             )
             os.replace(candidate_path, self.source_path)
             replaced_candidate = True
@@ -520,8 +575,46 @@ class OpenedSourceStore:
         candidate_path: Path,
         canonical_path: Path,
         strict: bool,
+        initial_open: bool = False,
+        previous: LoadedLibrary | None = None,
     ) -> LoadedLibrary:
-        """Compile every Project before one library version is accepted."""
+        """Compile every Project before one library version is accepted.
+
+        A Project that will not compile is handled by lifecycle stage:
+
+        - INITIAL OPEN and an OBSERVED EXTERNAL EDIT (``initial_open=True``):
+          the bytes are the source of truth (nobody in Studio authored them),
+          so a Project that will not compile is recorded as an unopenable
+          catalog entry and the rest still load -- opening a real library, or
+          picking up a Final Cut re-export, is never blocked by one
+          unsupported Project. Its canonical XML is kept in
+          ``LoadedLibrary.frozen_projects``.
+        - Every STUDIO-AUTHORED compile (a source replacement, undo/redo)
+          passes the currently loaded library as ``previous`` without
+          ``initial_open``.
+          A failing Project is then tolerated ONLY if its canonical XML is one
+          of ``previous.frozen_projects`` -- i.e. it is a known-unopenable
+          Project carried through verbatim. That makes exactly those Projects
+          read-only: editing one is rejected with ``project_read_only`` (there
+          is no compile to validate the edit against), while any OTHER Project
+          that stops compiling is a bad edit and is rejected atomically with
+          ``source_invalid`` as before. A Project that an edit FIXES simply
+          compiles and becomes openable; its frozen identity is still carried
+          forward so an undo back to the tolerated XML is accepted.
+
+        ``strict`` is orthogonal and always fatal on the first defect.
+
+        Main callers: ``open`` (initial) and ``_record_disk_observation_locked``
+        (external edits) with ``initial_open=True``; ``replace`` and
+        ``_materialize_history_locked`` (undo/redo) without.
+        """
+
+        tolerated = frozenset() if previous is None else previous.frozen_projects
+        previously_unopenable = {
+            entry.project_ref: entry
+            for entry in (previous.catalog if previous is not None else ())
+            if entry.error is not None
+        }
 
         try:
             root = read_fcpxml_root(candidate_path)
@@ -537,16 +630,54 @@ class OpenedSourceStore:
         canonical = canonical_path.resolve()
         projects: list[LoadedProject] = []
         catalog: list[ProjectCatalogEntry] = []
+        # Identities tolerated in ANY earlier version stay tolerated (see
+        # ``LoadedLibrary.frozen_projects``): a history snapshot that
+        # re-introduces a once-tolerated Project verbatim must compile.
+        frozen: set[str] = set(tolerated)
         version: str | None = None
         for address in addressed:
             try:
                 compiled = compile_fcpxml(candidate_path, project=address.project_ref)
             except (FCPXMLRenderError, OSError) as error:
-                raise PreviewAPIError(
-                    "source_invalid",
-                    f"{address.project_ref}: {error}",
-                    status=422,
-                ) from error
+                # A Project that will not compile is tolerated (recorded as an
+                # unopenable catalog entry, the rest keep loading) at initial
+                # open, or later only when it is a known-unopenable Project
+                # carried through verbatim. ``strict`` is always fatal. Its
+                # name/uid come from the document address, not a compile, so
+                # the listing is still complete either way.
+                canonical_xml = _canonical_project_xml(address.project)
+                tolerable = not strict and (initial_open or canonical_xml in tolerated)
+                if not tolerable:
+                    was_unopenable = previously_unopenable.get(address.project_ref)
+                    if was_unopenable is not None and not strict:
+                        # The Project was already unopenable and its XML changed:
+                        # nothing can validate that edit, so it is read-only.
+                        raise PreviewAPIError(
+                            "project_read_only",
+                            f"{address.project_ref} "
+                            f"({was_unopenable.project_name or 'unnamed'}) cannot be "
+                            f"opened ({was_unopenable.error}) and is read-only; its "
+                            f"XML was modified. Revert the change to that Project.",
+                            status=422,
+                        ) from error
+                    raise PreviewAPIError(
+                        "source_invalid",
+                        f"{address.project_ref}: {error}",
+                        status=422,
+                    ) from error
+                frozen.add(canonical_xml)
+                catalog.append(
+                    ProjectCatalogEntry(
+                        project_ref=address.project_ref,
+                        library_name=address.library.get("name"),
+                        event_name=address.event.get("name"),
+                        project_name=address.project.get("name"),
+                        uid=address.project.get("uid"),
+                        degraded=True,
+                        error=str(error),
+                    )
+                )
+                continue
             if strict and compiled.report.has_strict_failures:
                 failures = [
                     f"{item.fcpxml_path}: {item.disposition}"
@@ -591,8 +722,23 @@ class OpenedSourceStore:
                     degraded=normalized.report.degraded,
                 )
             )
-        assert version is not None
-        return LoadedLibrary(version=version, projects=tuple(projects), catalog=tuple(catalog))
+        if version is None:
+            # Every Project failed to compile: there is nothing to open, so this
+            # is a genuine whole-library failure rather than a tolerable gap.
+            details = "; ".join(
+                f"{entry.project_ref}: {entry.error}" for entry in catalog if entry.error
+            )
+            raise PreviewAPIError(
+                "source_invalid",
+                f"No Project in the library could be compiled ({details})",
+                status=422,
+            )
+        return LoadedLibrary(
+            version=version,
+            projects=tuple(projects),
+            catalog=tuple(catalog),
+            frozen_projects=frozenset(frozen),
+        )
 
     @staticmethod
     def _fsync_directory(directory: Path) -> None:

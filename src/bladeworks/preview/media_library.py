@@ -133,31 +133,62 @@ class MediaLibrary:
         The sampler accepts the same ``relativePath`` returned by inventory.
         It never accepts an arbitrary host path because the local API bearer
         token should not become a general-purpose file reader.
+
+        Containment is checked on the path's LOCATION inside ``Media/`` --
+        lexically, and rejecting any ``..`` traversal or absolute path -- NOT on
+        the symlink target. A file placed at ``Media/<name>`` that is a symlink
+        to media elsewhere on disk (as ``bladeworks --symlink-media`` creates
+        when it consolidates an FCPXML's external references) is therefore
+        addressable and followed to its target. That is deliberate: those links
+        were written into the bundle by an explicit operation, and this sampler
+        only ever DECODES the file for thumbnails/waveforms, so following an
+        intra-``Media`` link cannot turn into an arbitrary-path byte reader.
+
+        Only the FINAL path component may be a symlink. A DIRECTORY symlink
+        below ``Media/`` (``Media/escape -> /outside``) would pass the lexical
+        check while making every ``Media/escape/<name>`` reach outside the
+        bundle, so ``_below_symlinked_directory`` rejects those. ``Media``
+        itself may still be a symlink (a bundle whose whole media root lives
+        elsewhere is a supported layout).
         """
 
-        if not relative_path or Path(relative_path).is_absolute():
+        relative = Path(relative_path) if relative_path else Path()
+        if not relative_path or relative.is_absolute() or ".." in relative.parts:
             raise MediaLibraryError(
                 "invalid_media_path",
                 "relativePath must identify one file below the opened bundle's Media directory.",
                 status=400,
             )
-        candidate = (self.bundle_path / relative_path).resolve()
-        media_root = self.media_directory.resolve()
+        # Lexical containment: join under the bundle and require the result to
+        # sit under Media/ WITHOUT resolving symlinks. ``..`` is already
+        # rejected above, so this cannot escape.
+        candidate = self.bundle_path / relative
         try:
-            candidate.relative_to(media_root)
+            candidate.relative_to(self.media_directory)
         except ValueError as error:
             raise MediaLibraryError(
                 "invalid_media_path",
                 "relativePath must identify one file below the opened bundle's Media directory.",
                 status=400,
             ) from error
+        if self._below_symlinked_directory(candidate):
+            raise MediaLibraryError(
+                "invalid_media_path",
+                "relativePath must not pass through a symlinked directory below Media.",
+                status=400,
+            )
+        # ``is_file()`` follows the link, so a consolidated symlink whose target
+        # exists is a valid, sample-able file.
         if not candidate.is_file() or self._ignored(candidate):
             raise MediaLibraryError(
                 "media_not_found",
                 f"Media file is missing: {relative_path}",
                 status=404,
             )
-        return candidate
+        # Return the resolved target (following any consolidated symlink) so the
+        # sampler opens the real file. Containment was already enforced
+        # lexically above, so resolving here cannot widen what is reachable.
+        return candidate.resolve()
 
     def import_file(self, source_path: Path, destination_name: str) -> MediaRecord:
         """Stage, publish without overwrite, probe, and inventory one local file.
@@ -293,13 +324,43 @@ class MediaLibrary:
         return MediaInventory(items=tuple(records), failures=tuple(failures))
 
     def _ignored(self, path: Path) -> bool:
+        # Containment is lexical (the path's LOCATION under Media/), not based on
+        # the symlink target: a consolidated ``Media/<name>`` link whose target
+        # lives elsewhere must still be inventoried and sample-able. ``_scan``
+        # only ever hands us paths produced by ``media_directory.rglob``, so the
+        # relative_to is a pure path operation here. Files reached THROUGH a
+        # symlinked directory are ignored for the same reason
+        # ``resolve_media_path`` refuses them: they are not located in Media.
         try:
-            relative = path.resolve().relative_to(self.media_directory.resolve())
+            relative = path.relative_to(self.media_directory)
         except ValueError:
-            # A file-level symlink may point outside the allowed Media root.
-            # Keep it out of inventory just as resolve_media_path does.
+            # Genuinely outside the Media directory tree -- not ours.
             return True
-        return any(part.startswith(".") for part in relative.parts) or path.name.endswith(".partial")
+        if any(part.startswith(".") for part in relative.parts) or path.name.endswith(".partial"):
+            return True
+        return self._below_symlinked_directory(path)
+
+    def _below_symlinked_directory(self, path: Path) -> bool:
+        """True when any directory BETWEEN ``Media/`` and ``path`` is a symlink.
+
+        ``path`` must already be lexically inside ``self.media_directory``. The
+        final component is not examined (a per-file consolidation link is
+        allowed); ``Media`` itself is not examined either (a symlinked media
+        root is a supported bundle layout). Walking the intermediate components
+        is what keeps lexical containment meaningful: a directory link would
+        otherwise carry ``Media/<link>/<name>`` anywhere on the host.
+
+        Main callers: ``resolve_media_path`` (sampler requests) and ``_ignored``
+        (inventory scan), so the two agree on what counts as a Media file.
+        """
+
+        relative = path.relative_to(self.media_directory)
+        probe = self.media_directory
+        for part in relative.parts[:-1]:
+            probe = probe / part
+            if probe.is_symlink():
+                return True
+        return False
 
     def _probe(self, path: Path) -> MediaRecord:
         try:
