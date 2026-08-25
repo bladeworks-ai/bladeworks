@@ -4,8 +4,8 @@
     ".github/workflows/publish.yml": "1a773090344570b06fa6aa3e19c93c04abaf738bb614c508998d544193845ce6",
     ".gitignore": "c08a91fae6c6ae90b1070b455144acdecedaf95fc97d9f7f6659c286eb05ac70",
     "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
-    "README.md": "4c203f26bf2adb3fd450bf70b4e7333d6dd1a3440002b498c46f0d1464ca1fd3",
-    "pyproject.toml": "0f532d8b0f4a35248895a3d1ee0c35fd470288e99d61a4e8aee6c96e2f85e2b8",
+    "README.md": "9a2609f26395e53027c3034b1d9ff1e270b3b32a4a842217d1130e7945b32fea",
+    "pyproject.toml": "4a5d6de93026a2a300f662154dde036b7caff4653ecc37e83f5c0100d835148c",
     "requirements.txt": "a4d5edd72ca58467943bf9b71d1d2074e7ed9f502b9ef682c9f18d9d4685fc2c",
     "src/bladeworks/__init__.py": "6af7f6906e2e292ba735bb14336729d03363217b297067d19f3d9062d0935851",
     "src/bladeworks/__main__.py": "0f7d54f3fbb1f79a85eb8110f11793db99da6f3c61ee979de5abe9a1b5f3fdb3",
@@ -185,5 +185,5 @@
     "src/bladeworks/transitions/stock.py": "adbe70eeb72c85140507d947d046f2b88065bd66dd65ce485d0c93a562830e98"
   },
   "generator": "scripts/release_bladeworks.py",
-  "spellshot_commit": "66da81cdbb5e6d4c57e1a4bdcebe3013f4f3a244"
+  "spellshot_commit": "dc56600ce47acf2bfdb56340d3f70f5ba247f319"
 }

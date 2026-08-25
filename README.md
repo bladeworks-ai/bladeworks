@@ -122,7 +122,3 @@ python -m pytest -q
 
 Bladeworks is licensed under the GNU Affero General Public License v3.0 only.
 See [LICENSE](LICENSE).
-
----
-
-Made with <3 in Foster City, California.
