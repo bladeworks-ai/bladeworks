@@ -1,9 +1,10 @@
 {
   "files": {
     ".bladeworks-release-target": "463cba39363d1a426e9760d4bce6f7f1250b10f306b4e014c44669a296833395",
-    ".github/workflows/install.yml": "5780a1d7ea2c66c713851913fe83f28c896f1700b857d7a1329e9560b0a83c00",
+    ".github/workflows/install.yml": "75edc8a146a8d4898f9df29423e7c07e10ec61a53192cad75e18a13c14db0653",
     ".github/workflows/publish.yml": "1a773090344570b06fa6aa3e19c93c04abaf738bb614c508998d544193845ce6",
     ".gitignore": "c08a91fae6c6ae90b1070b455144acdecedaf95fc97d9f7f6659c286eb05ac70",
+    "Formula/bladeworks.rb": "3df973510e2dea3e8c083dd5604c1b4f970fb68ba8c7a6ae2e1799059357252a",
     "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
     "README.md": "bb56ce66df8cb3591ddab7992c21e75203791ec0a96d952cda0fc73e7f44984e",
     "install-linux.sh": "b428cff7a4d9b9b3542cdbb8218f7f3384d53d00d77dbe1022272f77b7cab51c",
@@ -200,5 +201,5 @@
     "src/bladeworks/transitions/stock.py": "adbe70eeb72c85140507d947d046f2b88065bd66dd65ce485d0c93a562830e98"
   },
   "generator": "scripts/release_bladeworks.py",
-  "spellshot_commit": "24133fc94ce108ccdd4a81a8dddefd376b75dea7"
+  "spellshot_commit": "3927ee8e1b3260a96a22a04f8917e27f7371213a"
 }
