@@ -5,13 +5,34 @@ Bladeworks renders portable Final Cut Pro XML projects (`.fcpxml` files and
 
 ## Install
 
+### macOS
+
+Homebrew installs Bladeworks in an isolated Python environment and provides
+FFmpeg, ffprobe, FriBiDi, HarfBuzz, and RAQM:
+
+```bash
+brew install bladeworks-ai/tap/bladeworks
+bladeworks doctor
+```
+
+### Linux
+
+The supported installer detects Ubuntu 22.04+ or Debian 12+ and installs native
+dependencies:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bladeworks-ai/bladeworks/main/install-linux.sh | bash
+```
+
+### Developer installation
+
 ```bash
 python -m pip install bladeworks
 ```
 
-Bladeworks requires both `ffmpeg` and `ffprobe` on `PATH` to inspect source
-media and stream Studio preview audio. Run the prerequisite check after
-installation:
+The PyPI package does not install native libraries. Developers must separately
+provide FFmpeg/ffprobe and a Pillow build with RAQM text shaping. Confirm the
+resolved executable paths and libraries after installation:
 
 ```bash
 bladeworks doctor
@@ -28,11 +49,30 @@ bladeworks examples cp single_clip .   # copy single_clip.fcpxmld into the curre
 bladeworks render single_clip.fcpxmld --output out.mp4
 ```
 
+## AI agent skill
+
+The repository includes [`skills/bladeworks-fcpxml/SKILL.md`](skills/bladeworks-fcpxml/SKILL.md),
+a portable agent skill for authoring and validating FCPXML against Bladeworks'
+supported render surface. Its bundled references include the complete authoring
+specification, focused domain guides, FCPXML 1.14 DTD, examples, and the
+machine-readable capability registry.
+
 Render your own project the same way:
 
 ```bash
 bladeworks render path/to/project.fcpxmld --output output.mp4
 ```
+
+> **Tip:** Want to use a library exported from Final Cut Pro? Choose
+> **File > Export XML...**, then add `--symlink-media` when opening the exported
+> `.fcpxmld` bundle:
+>
+> ```bash
+> bladeworks studio path/to/library.fcpxmld --symlink-media
+> ```
+>
+> Bladeworks symlinks the referenced media from your `.fcpbundle` into the
+> exported bundle's `Media/` directory, so you do not need to copy the media.
 
 ## Preview & edit locally
 

@@ -1,0 +1,17 @@
+name: Supported installers
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install from the generated checkout
+        env:
+          BLADEWORKS_SPEC: ${{ github.workspace }}
+        run: ./install-linux.sh
+      - run: ~/.local/bin/bladeworks doctor

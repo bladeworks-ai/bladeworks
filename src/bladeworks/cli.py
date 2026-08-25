@@ -711,6 +711,8 @@ def _run_doctor() -> int:
       install hint and make the overall exit non-zero.
     - The torch compute device the tensor backend would select (mps > cuda >
       cpu), matching ``renderer._select_device``'s preference order.
+    - Pillow's version and Raqm text shaping support. Raqm is a hard
+      prerequisite because rendering text without it changes layout.
     - Versions of python, torch, av (PyAV), and ffprobe, so a bug report can
       pin the toolchain.
 
@@ -736,6 +738,34 @@ def _run_doctor() -> int:
         print("  install hint: `brew install ffmpeg` (macOS) or your distro's ffmpeg package.", file=sys.stderr)
 
     print(f"python: {sys.version.split()[0]} ({sys.executable})")
+
+    try:
+        from PIL import __version__ as pillow_version
+        from PIL import features
+
+        raqm_available = bool(features.check("raqm"))
+        print(f"Pillow: {pillow_version}")
+        if raqm_available:
+            print("RAQM: OK")
+        else:
+            ok = False
+            print(
+                "RAQM: MISSING -- required for correct text shaping.",
+                file=sys.stderr,
+            )
+            print(
+                "  install hint: use the supported Bladeworks installer; "
+                "developer installs must provide FriBiDi, HarfBuzz, and a "
+                "Pillow build with RAQM enabled.",
+                file=sys.stderr,
+            )
+    except Exception as exc:  # noqa: BLE001
+        ok = False
+        print(f"Pillow: UNAVAILABLE ({exc})", file=sys.stderr)
+        print(
+            "  install hint: reinstall Bladeworks with its supported installer.",
+            file=sys.stderr,
+        )
 
     try:
         import torch  # local import: torch is heavy and only needed here / in the tensor backend

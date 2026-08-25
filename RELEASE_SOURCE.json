@@ -1,15 +1,30 @@
 {
   "files": {
     ".bladeworks-release-target": "463cba39363d1a426e9760d4bce6f7f1250b10f306b4e014c44669a296833395",
+    ".github/workflows/install.yml": "5780a1d7ea2c66c713851913fe83f28c896f1700b857d7a1329e9560b0a83c00",
     ".github/workflows/publish.yml": "1a773090344570b06fa6aa3e19c93c04abaf738bb614c508998d544193845ce6",
     ".gitignore": "c08a91fae6c6ae90b1070b455144acdecedaf95fc97d9f7f6659c286eb05ac70",
     "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
-    "README.md": "9a2609f26395e53027c3034b1d9ff1e270b3b32a4a842217d1130e7945b32fea",
-    "pyproject.toml": "4a5d6de93026a2a300f662154dde036b7caff4653ecc37e83f5c0100d835148c",
+    "README.md": "bb56ce66df8cb3591ddab7992c21e75203791ec0a96d952cda0fc73e7f44984e",
+    "install-linux.sh": "b428cff7a4d9b9b3542cdbb8218f7f3384d53d00d77dbe1022272f77b7cab51c",
+    "pyproject.toml": "a57cc739103353bbaf1a9cf7ef0ffdf4b5854bb8649aea2bc7f646f52ea6cdaf",
     "requirements.txt": "a4d5edd72ca58467943bf9b71d1d2074e7ed9f502b9ef682c9f18d9d4685fc2c",
+    "skills/bladeworks-fcpxml/SKILL.md": "860c5a7dbd848a17c2ad85806f5643d1bd001e84f7880e3e0edbd4b3cbe6834a",
+    "skills/bladeworks-fcpxml/references/EFFECT_PARAMETER_SUPPORT.md": "545b9e1c05e825b027e43f66ba39d220c3fad8b00f0e5240d38baa06872e8098",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/AUDIO.md": "7dd4fed11e37768e6582c9d72b297bd07841049d337e34bdc58208a4be51a222",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/CORE.md": "b57fcab801e73944b4ca05682f3640e51d54499a2a2f5ba2efb058f8c30db1e2",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/EFFECTS_AND_TRANSITIONS.md": "c9361ba1fddd5b09bd014537dd7b529b49cf81598a0dd603113d1595ed5d7ce1",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/EXAMPLES.md": "a39cd69d24a5e39df10dbca25fe3352482e161e28c191bb4a60382eb6b00743f",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/FCPXMLv1_14.dtd": "33bb44530790be145d87ed2d5c347166aab945c90f1cfbc03c8be545aaf73cb5",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/GEOMETRY.md": "960ad761dfae41d72b5f78799da204ec216e61996caa158a70d3f96517857335",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/INVENTORY.md": "bc6e6306958538ab0b2d562939cc8f3c9287461a0ee1f2f2efef0ccad811a884",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/TIMELINE.md": "e554ded8fce2a5d66b0c23dc1ff49137a68f14bcf0ec09c56a816b3a9b78fa28",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS/TITLES_AND_CAPTIONS.md": "68e17ae1c9b8e8627d99547133dafcf92c5fee2a78b01d751e4c46e2e91b5c9d",
+    "skills/bladeworks-fcpxml/references/FCPXML_BLADEWORKS_SPEC.md": "1fae1399779093bda9a5e745b95c8ee79a4c63809d172e2926e64c439219e502",
+    "skills/bladeworks-fcpxml/references/FCPXML_RENDER_CAPABILITIES.yaml": "fbe8ada411e2e1c35cf6ed896c2629ae34e1f0cb8754a7e0451b5408adefe175",
     "src/bladeworks/__init__.py": "6af7f6906e2e292ba735bb14336729d03363217b297067d19f3d9062d0935851",
     "src/bladeworks/__main__.py": "0f7d54f3fbb1f79a85eb8110f11793db99da6f3c61ee979de5abe9a1b5f3fdb3",
-    "src/bladeworks/cli.py": "317124f4203f378af638ecad97715eea6d859a80d18438d61c4a6b104ccd5e54",
+    "src/bladeworks/cli.py": "49825d25c47b71f99ba944857a15be2834ba4801c44a069253225add37397135",
     "src/bladeworks/core/__init__.py": "c28d57d373ba7723b0b16171dfd3a5c59a9a29e453e8959ffcc772fa56ebcd7d",
     "src/bladeworks/core/animation.py": "1a073f078f59381f66b8316411b904819c38b14366bcfce754d9e0da9d694260",
     "src/bladeworks/core/animation_execution.py": "ad5d6f3e01fadf81595c66746e267e93e9ef6ae10c024f50e60dae63ae926bb2",
@@ -185,5 +200,5 @@
     "src/bladeworks/transitions/stock.py": "adbe70eeb72c85140507d947d046f2b88065bd66dd65ce485d0c93a562830e98"
   },
   "generator": "scripts/release_bladeworks.py",
-  "spellshot_commit": "dc56600ce47acf2bfdb56340d3f70f5ba247f319"
+  "spellshot_commit": "24133fc94ce108ccdd4a81a8dddefd376b75dea7"
 }
