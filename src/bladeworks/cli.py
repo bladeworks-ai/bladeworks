@@ -2,10 +2,10 @@
 
 Architecture map
 ----------------
-This module is the ``bladeworks`` front door (the CLI is installed as the
-``bladeworks`` console script; the module entry point remains available for
-development inside Bladeworks
-via ``__main__.py``). It hosts a small family of subcommands:
+This module is the ``bladeworks`` Python package front door. The public CLI is
+installed as the ``fcpxml`` console script, while the Python module entry point
+remains available for development inside Bladeworks via ``__main__.py``. It
+hosts a small family of subcommands:
 
 - ``render``   -- compile an ``.fcpxml`` / ``.fcpxmld`` and execute a render.
                   Defaults to the ``tensor`` backend; ``-o/--output`` is
@@ -44,7 +44,10 @@ from typing import Optional, Sequence
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="bladeworks", description="Bladeworks renderer: portable FCPXML to video")
+    parser = argparse.ArgumentParser(
+        prog="fcpxml",
+        description="Bladeworks FCPXML renderer: portable FCPXML to video",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     inspect_parser = subparsers.add_parser("inspect", help="parse and classify an FCPXML document without rendering")
@@ -652,7 +655,7 @@ def _run_projects(args: argparse.Namespace) -> int:
             last_event_id = id(event)
         print(f"    {_project_label(project)}")
 
-    print(f"render one with: bladeworks render {args.input} --project NAME_OR_UID")
+    print(f"render one with: fcpxml render {args.input} --project NAME_OR_UID")
     return 0
 
 

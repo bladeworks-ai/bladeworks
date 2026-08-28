@@ -1,18 +1,18 @@
-# Bladeworks
+# Bladeworks FCPXML
 
-Bladeworks renders portable Final Cut Pro XML projects (`.fcpxml` files and
+Bladeworks FCPXML renders portable Final Cut Pro XML projects (`.fcpxml` files and
 `.fcpxmld` bundles) to video.
 
 ## Install
 
 ### macOS
 
-Homebrew installs Bladeworks in an isolated Python environment and provides
+Homebrew installs Bladeworks FCPXML in an isolated Python environment and provides
 FFmpeg, ffprobe, FriBiDi, HarfBuzz, and RAQM:
 
 ```bash
-brew install bladeworks-ai/tap/bladeworks
-bladeworks doctor
+brew install bladeworks-ai/tap/fcpxml
+fcpxml doctor
 ```
 
 ### Linux
@@ -21,7 +21,7 @@ The supported installer detects Ubuntu 22.04+ or Debian 12+ and installs native
 dependencies:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bladeworks-ai/bladeworks/main/install-linux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bladeworks-ai/fcpxml/main/install-linux.sh | bash
 ```
 
 ### Developer installation
@@ -35,7 +35,7 @@ provide FFmpeg/ffprobe and a Pillow build with RAQM text shaping. Confirm the
 resolved executable paths and libraries after installation:
 
 ```bash
-bladeworks doctor
+fcpxml doctor
 ```
 
 ## Quick start
@@ -43,10 +43,10 @@ bladeworks doctor
 No project of your own yet? Render a packaged sample end to end:
 
 ```bash
-bladeworks doctor                      # verify ffmpeg, ffprobe, and the torch device
-bladeworks examples ls                 # list the packaged sample projects
-bladeworks examples cp single_clip .   # copy single_clip.fcpxmld into the current directory
-bladeworks render single_clip.fcpxmld --output out.mp4
+fcpxml doctor                      # verify ffmpeg, ffprobe, and the torch device
+fcpxml examples ls                 # list the packaged sample projects
+fcpxml examples cp single_clip .   # copy single_clip.fcpxmld into the current directory
+fcpxml render single_clip.fcpxmld --output out.mp4
 ```
 
 ## AI agent skill
@@ -60,7 +60,7 @@ machine-readable capability registry.
 Render your own project the same way:
 
 ```bash
-bladeworks render path/to/project.fcpxmld --output output.mp4
+fcpxml render path/to/project.fcpxmld --output output.mp4
 ```
 
 > **Tip:** Want to use a library exported from Final Cut Pro? Choose
@@ -68,7 +68,7 @@ bladeworks render path/to/project.fcpxmld --output output.mp4
 > `.fcpxmld` bundle:
 >
 > ```bash
-> bladeworks studio path/to/library.fcpxmld --symlink-media
+> fcpxml studio path/to/library.fcpxmld --symlink-media
 > ```
 >
 > Bladeworks symlinks the referenced media from your `.fcpbundle` into the
@@ -79,20 +79,20 @@ bladeworks render path/to/project.fcpxmld --output output.mp4
 Both open one `.fcpxmld` bundle on `127.0.0.1`, using the same render engine:
 
 ```bash
-bladeworks studio path/to/project.fcpxmld   # interactive web editor (opens in a browser)
-bladeworks server run path/to/project.fcpxmld   # headless HTTP API, no UI
+fcpxml studio path/to/project.fcpxmld   # interactive web editor (opens in a browser)
+fcpxml server run path/to/project.fcpxmld   # headless HTTP API, no UI
 ```
 
 Use `studio` to tweak and preview a bundle by hand; use `server` to drive the
-renderer programmatically (`bladeworks server health --url <url>` checks readiness).
+renderer programmatically (`fcpxml server health --url <url>` checks readiness).
 
 ## More commands
 
 ```bash
-bladeworks inspect path/to/project.fcpxml    # classify what a document uses, without rendering
-bladeworks projects path/to/project.fcpxml   # list the projects a file/bundle contains
-bladeworks proxy path/to/project.fcpxmld     # generate downscaled proxy media
-bladeworks --help                            # all commands and options
+fcpxml inspect path/to/project.fcpxml    # classify what a document uses, without rendering
+fcpxml projects path/to/project.fcpxml   # list the projects a file/bundle contains
+fcpxml proxy path/to/project.fcpxmld     # generate downscaled proxy media
+fcpxml --help                            # all commands and options
 ```
 
 ## Capabilities

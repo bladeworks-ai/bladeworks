@@ -265,8 +265,12 @@ class RenderJobService:
             raise PreviewAPIError("render_not_found", f"Render job {job_id!r} does not exist.", status=404)
         return job
 
-    def get_artifact(self, job_id: str, token: str | None) -> RenderJob:
+    def get_artifact(
+        self, job_id: str, token: str | None, *, bearer_authorized: bool = False
+    ) -> RenderJob:
         job = self.get(job_id)
+        if bearer_authorized:
+            return job
         if not secrets.compare_digest(token or "", job.download_token):
             raise PreviewAPIError("render_not_found", "Render artifact token is invalid.", status=404)
         return job

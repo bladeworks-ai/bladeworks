@@ -1,12 +1,12 @@
 ---
 name: bladeworks-fcpxml
-description: Author, inspect, repair, or validate FCPXML intended for the Bladeworks renderer. Use for Bladeworks timeline structure, timing, geometry, audio, titles, effects, transitions, capability checks, and render compatibility; not for general Final Cut Pro UI questions.
+description: Author, inspect, repair, or validate FCPXML intended for the Bladeworks FCPXML renderer. Use for Bladeworks FCPXML timeline structure, timing, geometry, audio, titles, effects, transitions, capability checks, and render compatibility; not for general Final Cut Pro UI questions.
 ---
 
 # Bladeworks FCPXML
 
 Use the bundled reference as the authority for FCPXML that must render through
-the `bladeworks` CLI. Bladeworks implements a deliberate subset of Final Cut
+the `fcpxml` CLI. Bladeworks FCPXML implements a deliberate subset of Final Cut
 Pro's FCPXML, so native FCPXML validity alone does not prove renderability.
 
 ## Required workflow
@@ -43,7 +43,7 @@ Pro's FCPXML, so native FCPXML validity alone does not prove renderability.
 6. Validate Bladeworks compatibility separately:
 
    ```bash
-   bladeworks inspect project.fcpxml --strict
+   fcpxml inspect project.fcpxml --strict
    ```
 
 7. Render a representative output when the task requires proof beyond static

@@ -2,7 +2,7 @@
 
 Architecture map
 ----------------
-This module implements the ``bladeworks proxy`` command. Given a plain
+This module implements the ``fcpxml proxy`` command. Given a plain
 ``.fcpxml`` file or a ``.fcpxmld`` bundle, it walks every VIDEO asset, transcodes
 its ORIGINAL media into a small, fast-to-decode proxy, drops the proxy file
 BESIDE the original, and injects a ``<media-rep kind="proxy-media" src=...>`` into
@@ -113,7 +113,7 @@ class _SourceProbe:
 
 @dataclass
 class ProxyGenerationResult:
-    """What one ``bladeworks proxy`` pass did, for a concise human report.
+    """What one ``fcpxml proxy`` pass did, for a concise human report.
 
     - ``document`` / ``source_path``: the resolved bundle-or-file and the exact
       FCPXML file that was (or would be) rewritten.

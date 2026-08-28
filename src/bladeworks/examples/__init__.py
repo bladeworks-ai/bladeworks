@@ -5,7 +5,7 @@ Architecture / why this exists
 These five tiny, self-contained ``.fcpxmld`` bundles are the ONE source of
 truth for both:
 
-1. The ``bladeworks examples ls`` / ``examples cp`` commands, which let a user
+1. The ``fcpxml examples ls`` / ``examples cp`` commands, which let a user
    discover and copy a renderable sample project out of the installed wheel.
 2. The ``experimental_tests`` sanity fixtures that render one core mechanic
    each (``test_fcpxmld_fixtures.py``), which import :data:`EXAMPLES_DIR` and
@@ -53,7 +53,7 @@ class Example:
         return EXAMPLES_DIR / f"{self.name}.fcpxmld"
 
 
-# The manifest. Order is display order for ``bladeworks examples ls``.
+# The manifest. Order is display order for ``fcpxml examples ls``.
 EXAMPLES: dict[str, Example] = {
     example.name: example
     for example in (
@@ -69,7 +69,7 @@ EXAMPLES: dict[str, Example] = {
 def example_bundle(name: str) -> Path:
     """Return the ``.fcpxmld`` bundle path for ``name`` or raise loudly.
 
-    Main callers: ``bladeworks examples cp`` and the CLI tests. Raises
+    Main callers: ``fcpxml examples cp`` and the CLI tests. Raises
     ``KeyError`` with the known names when ``name`` is not in the manifest so
     the CLI can turn it into a loud user-facing error (never a silent miss).
     """

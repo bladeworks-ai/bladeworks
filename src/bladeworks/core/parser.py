@@ -278,7 +278,7 @@ def parse_fcpxml_resources(path: Path) -> ResourceDocument:
     """Load a document's ``<resources>`` WITHOUT selecting a Project.
 
     Main callers:
-    - ``core/proxy_media.generate_proxies`` (the ``bladeworks proxy`` command).
+    - ``core/proxy_media.generate_proxies`` (the ``fcpxml proxy`` command).
 
     Why this exists: ``parse_fcpxml`` refuses a library holding several
     Projects unless one is named, because a compile needs exactly one
@@ -390,7 +390,7 @@ def read_fcpxml_root(path: Path) -> ET.Element:
     """Resolve a file/bundle, securely read it, and return its ``<fcpxml>`` root.
 
     Main callers:
-    - the ``bladeworks projects`` CLI command, which only needs the
+    - the ``fcpxml projects`` CLI command, which only needs the
       library/event/project tree and not a full project compile.
 
     Why this exists: browsing the projects in a document is far cheaper than
@@ -453,7 +453,7 @@ def list_library_projects(root: ET.Element) -> list[tuple[ET.Element, ET.Element
     callers:
 
     - ``_select_project`` -- picks one project (by name/UID) from this list.
-    - the ``bladeworks projects`` CLI command -- prints this list for browsing.
+    - the ``fcpxml projects`` CLI command -- prints this list for browsing.
 
     Why this exists: the candidate enumeration used to live inline inside
     ``_select_project``. Extracting it keeps the browse command and the

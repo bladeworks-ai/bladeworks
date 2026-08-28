@@ -347,8 +347,8 @@ def require_torch_device(name: str) -> None:
         must never silently land on another device.
 
     Main callers:
-        ``_select_device``, the ``bladeworks render --device`` CLI, and
-        ``bladeworks server run --device``.
+        ``_select_device``, the ``fcpxml render --device`` CLI, and
+        ``fcpxml server run --device``.
     """
 
     requested = str(name).strip()

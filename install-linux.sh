@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Supported Linux installer for Bladeworks.
+# Supported Linux installer for Bladeworks FCPXML.
 #
 # Native packages are installed system-wide. Bladeworks itself is isolated in
 # ~/.local/share/bladeworks/venv and only its launcher is exposed on PATH.
@@ -83,11 +83,19 @@ esac
 "${install_root}/venv/bin/python" -m pip install --upgrade pip
 "${install_root}/venv/bin/python" -m pip install "${bladeworks_spec}"
 mkdir -p "${bin_dir}"
-ln -sfn "${install_root}/venv/bin/bladeworks" "${bin_dir}/bladeworks"
+if [[ -L "${bin_dir}/bladeworks" ]]; then
+  rm "${bin_dir}/bladeworks"
+fi
+launcher="${bin_dir}/fcpxml"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  "exec \"${install_root}/venv/bin/python\" -m bladeworks \"\$@\"" \
+  > "${launcher}"
+chmod 0755 "${launcher}"
 
 if [[ ":${PATH}:" != *":${bin_dir}:"* ]]; then
-  echo "note: add ${bin_dir} to PATH to invoke bladeworks directly" >&2
+  echo "note: add ${bin_dir} to PATH to invoke fcpxml directly" >&2
 fi
 
-"${install_root}/venv/bin/bladeworks" doctor
-echo "Bladeworks installed at ${install_root}/venv"
+"${launcher}" doctor
+echo "Bladeworks FCPXML installed at ${install_root}/venv"

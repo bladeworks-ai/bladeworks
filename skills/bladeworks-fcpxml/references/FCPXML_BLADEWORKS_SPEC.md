@@ -1,9 +1,9 @@
 # Bladeworks FCPXML Authoring Reference
 
 This is the stable entrypoint for authoring FCPXML that will be **rendered by
-Bladeworks** — Spellshot's portable PyTorch tensor renderer (the `bladeworks`
+Bladeworks FCPXML** - Spellshot's portable PyTorch tensor renderer (the `fcpxml`
 CLI, `src/bladeworks/`). It describes the document you hand to
-`bladeworks render`: how the timeline is structured, the expressions that place
+`fcpxml render`: how the timeline is structured, the expressions that place
 and transform media, the compositing and colour model the renderer commits to,
 and how to validate a document before you render it.
 
@@ -25,7 +25,7 @@ identity, a black frame, or a hard cut you did not ask for.
 ## Architecture Map
 
 ```text
-FCPXML document  (rendered by `bladeworks render`)
+FCPXML document  (rendered by `fcpxml render`)
 +- resources
 |  +- format                 raster, cadence, colour space (Rec.709 SDR, square pixels)
 |  +- asset                  external media, gated on decoded pixel format + colour tags
@@ -54,7 +54,7 @@ Bladeworks renders **one** `<project><sequence>` per invocation, selected by
 name or UID:
 
 ```bash
-bladeworks render <doc>.fcpxml --project NAME_OR_UID
+fcpxml render <doc>.fcpxml --project NAME_OR_UID
 ```
 
 A multi-project or browser-clip document is legal; only the selected sequence
@@ -97,7 +97,7 @@ requirements, not preferences — a document that breaks one does not render.
    roles and audio adjustments for the independent PyAV graph, which delivers
    mono or stereo (5.1 / surround reject).
 5. **Supported titles and captions are runtime-rasterized.** Author their text
-   and styles in FCPXML; `bladeworks render` resolves fonts and rasterizes them
+   and styles in FCPXML; `fcpxml render` resolves fonts and rasterizes them
    automatically. Use only the templates and controls certified in the registry.
 6. **One `<project>` renders.** Select it with `--project`; a document may hold
    many, but only the selected sequence produces pixels.
@@ -231,7 +231,7 @@ coordinate interpretation) and read the frames.
 Render it with:
 
 ```bash
-bladeworks render project.fcpxml --project "Minimal Project"
+fcpxml render project.fcpxml --project "Minimal Project"
 ```
 
 The canonical copy and broader cases live in
@@ -247,7 +247,7 @@ The canonical copy and broader cases live in
 3. Authoring a non-square pixel aspect. Use square-pixel formats.
 4. Using an unsupported Motion title template or a font unavailable on the
    render machine. Author a certified template and an installed font, then let
-   `bladeworks render` rasterize it automatically.
+   `fcpxml render` rasterize it automatically.
 5. Authoring `audioLayout="surround"` or 5.1 output. Only mono and stereo deliver.
 6. Reaching for a base-FCPXML construct a sub-page marks as not-rendered instead
    of the supported alternative it names beside it.

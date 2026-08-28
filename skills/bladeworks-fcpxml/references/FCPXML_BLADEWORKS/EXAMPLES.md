@@ -1,7 +1,7 @@
 # Bladeworks Examples
 
 This page is a set of copyable FCPXML authoring templates for the Bladeworks
-renderer (`bladeworks render`). Every XML block labelled a **complete document**
+renderer (`fcpxml render`). Every XML block labelled a **complete document**
 is a full, DTD-valid FCPXML 1.14 document you can render as-is — start from the
 one closest to what you want to build, then swap in your own media and edit the
 constructs you need. The narrower rules each example relies on live in the
@@ -14,7 +14,7 @@ sibling pages: [CORE.md](CORE.md), [TIMELINE.md](TIMELINE.md),
 Render any complete document with:
 
 ```bash
-bladeworks render project.fcpxml --project "PROJECT NAME"
+fcpxml render project.fcpxml --project "PROJECT NAME"
 ```
 
 Replace the example file URLs and stable UIDs with real media identities before

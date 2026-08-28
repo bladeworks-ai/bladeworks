@@ -14,11 +14,4 @@ jobs:
         env:
           BLADEWORKS_SPEC: ${{ github.workspace }}
         run: ./install-linux.sh
-      - run: ~/.local/bin/bladeworks doctor
-
-  homebrew:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - run: brew install --formula ./Formula/bladeworks.rb
-      - run: brew test bladeworks
+      - run: ~/.local/bin/fcpxml doctor

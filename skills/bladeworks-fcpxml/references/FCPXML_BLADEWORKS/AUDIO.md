@@ -2,7 +2,7 @@
 
 This page is how to author FCPXML audio — roles, channel routing, gain, fades,
 mutes, panning, retiming, multicam audio, and calibrated enhancements — for the
-Bladeworks renderer (`bladeworks render`). Placement and clocks are in
+Bladeworks renderer (`fcpxml render`). Placement and clocks are in
 [TIMELINE.md](TIMELINE.md).
 
 Bladeworks renders a subset of Final Cut's FCPXML. Almost all audio authors

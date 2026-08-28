@@ -8,6 +8,7 @@ production assembly and remain separate from this transport module.
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 from contextlib import asynccontextmanager
 from typing import Any, Callable, Mapping, Optional
@@ -362,8 +363,18 @@ def create_app(
             return renders.cancel(job_id).payload()
 
         @app.get("/api/editor/renders/{job_id}/artifact")
-        async def render_artifact(job_id: str, token: str | None = None) -> FileResponse:
-            job = renders.get_artifact(job_id, token)
+        async def render_artifact(
+            request: Request, job_id: str, token: str | None = None
+        ) -> FileResponse:
+            bearer_authorized = False
+            if auth is not None:
+                supplied = request.headers.get("Authorization") or ""
+                bearer_authorized = hmac.compare_digest(
+                    supplied, f"Bearer {auth.token}"
+                )
+            job = renders.get_artifact(
+                job_id, token, bearer_authorized=bearer_authorized
+            )
             if job.status != "completed":
                 raise PreviewAPIError("render_failed", "Render artifact is not complete.", status=409)
             return FileResponse(

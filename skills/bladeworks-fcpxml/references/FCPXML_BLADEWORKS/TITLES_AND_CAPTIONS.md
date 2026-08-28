@@ -2,7 +2,7 @@
 
 This page is how to author title resources, editable text, template controls,
 native captions, and the Custom Solid generator for the Bladeworks renderer
-(`bladeworks render`). Geometry and placement are in [GEOMETRY.md](GEOMETRY.md);
+(`fcpxml render`). Geometry and placement are in [GEOMETRY.md](GEOMETRY.md);
 document, resource, and media structure is in [CORE.md](CORE.md). Validated
 title parameter keys are in [INVENTORY.md](INVENTORY.md).
 
@@ -12,10 +12,10 @@ reads each supported title or caption's text and styling, lays out glyphs with
 FreeType/HarfBuzz, writes a temporary project-space RGBA image, and composites
 that image at the element's geometry and time. You author valid `<title>` /
 `<caption>` / `<generator>` XML with its full grammar, geometry, and timing;
-`bladeworks render` performs the raster preparation internally. A few base-FCPXML
+`fcpxml render` performs the raster preparation internally. A few base-FCPXML
 constructs are not part of Bladeworks; they are called out where they come up and collected in
 [What Bladeworks Does Not Render](#what-bladeworks-does-not-render), each with
-the supported way to get the same result.
+the supported substitute.
 
 Backend anchoring: `executor.py::_prepare_runtime_rasters` (CLI
 orchestration), `core/text.py` (text and generator rasterization), `tensor/plan.py`
@@ -51,7 +51,7 @@ generator Bladeworks renders is **Custom Solid**, which you author directly (see
 
 ## Title Resources and Title Instances
 
-You still author the title grammar in full so the rasterizer can read it. An
+You still author the title grammar in full. An
 `<effect>` resource identifies a Motion title template; a `<title ref="...">`
 story element places one instance and owns its text, published parameters,
 styles, timing, role, and clip-level adjustments.

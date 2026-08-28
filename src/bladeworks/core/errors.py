@@ -31,7 +31,7 @@ class FCPXMLWriteConflictError(FCPXMLRenderError):
     """A document rewrite was refused because the file changed since it was read.
 
     Raised by ``core/media_consolidate.write_fcpxml_document`` when the bytes on
-    disk no longer match the bytes the mutating command (``bladeworks proxy``,
+    disk no longer match the bytes the mutating command (``fcpxml proxy``,
     ``--symlink-media``) parsed. Publishing the stale tree would silently drop
     whatever Final Cut, Studio, or another command wrote in between.
     """

@@ -3,7 +3,7 @@
 Architecture map
 ================
 
-    bladeworks server run PATH
+    fcpxml server run PATH
         -> create disposable instance directory
         -> open, hash, and compile Info.fcpxml
         -> bind one loopback socket, including port 0 selection
@@ -85,7 +85,7 @@ def _listener(host: str, port: int) -> socket.socket:
 def run_server(config: ServerConfig) -> int:
     """Run the API-only server without importing or launching a browser.
 
-    This is the hard headless entry point used by ``bladeworks server run``.
+    This is the hard headless entry point used by ``fcpxml server run``.
     Studio hosting and browser launch are reachable only through
     :func:`run_studio`.
     """
@@ -297,7 +297,7 @@ def _launch_chrome_app_window(url: str) -> bool:
     windows only reserve Close and Exit, so Studio's capture-phase keydown
     can own New Project.
 
-    Main callers: ``_launch_browser`` when ``bladeworks studio`` opens a UI.
+    Main callers: ``_launch_browser`` when ``fcpxml studio`` opens a UI.
     """
 
     for binary in _CHROME_APP_BINARIES:

@@ -1,7 +1,7 @@
 # Bladeworks Effects, Masks, and Transitions
 
 This page is how to author FCPXML filters, masks, and transitions for the
-Bladeworks renderer (`bladeworks render`). Storyline adjacency and transition
+Bladeworks renderer (`fcpxml render`). Storyline adjacency and transition
 timing are in [TIMELINE.md](TIMELINE.md#transitions); the paired audio crossfade
 is in [AUDIO.md](AUDIO.md).
 

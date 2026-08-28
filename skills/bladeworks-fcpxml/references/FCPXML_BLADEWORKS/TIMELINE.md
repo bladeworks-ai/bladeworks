@@ -2,7 +2,7 @@
 
 This page is how to author FCPXML timing — clocks, placement, story
 relationships, containers, retiming, and transition topology — for the Bladeworks
-renderer (`bladeworks render`). Geometry and compositing are in
+renderer (`fcpxml render`). Geometry and compositing are in
 [GEOMETRY.md](GEOMETRY.md); resource declarations are in [CORE.md](CORE.md).
 
 Bladeworks renders a subset of Final Cut's FCPXML. Almost all timing authors
@@ -11,7 +11,7 @@ arithmetic, and transition geometry the native reference does. A few base-FCPXML
 timing constructs are **not part of Bladeworks** — they are called out where they
 come up, and collected in [What Bladeworks Does Not Render](#what-bladeworks-does-not-render)
 with the supported way to get the same result. This is a self-contained authoring
-reference: targeting `bladeworks render`, you should not need another timing
+reference: targeting `fcpxml render`, you should not need another timing
 document.
 
 Anchoring: `tensor/support.py`, `tensor/decode.py` (frame ownership),

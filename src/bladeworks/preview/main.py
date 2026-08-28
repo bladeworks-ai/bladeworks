@@ -1,6 +1,6 @@
 """Compatibility entry point for the Bladeworks foreground server.
 
-The supported command is ``bladeworks server run PATH``. Running this module
+The supported command is ``fcpxml server run PATH``. Running this module
 directly forwards through the same CLI so there is only one server lifecycle.
 """
 

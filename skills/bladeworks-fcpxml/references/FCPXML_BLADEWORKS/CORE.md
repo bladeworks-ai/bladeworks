@@ -1,18 +1,16 @@
 # Bladeworks Core: Document, Resource, and Media Model
 
-This page is how to author the FCPXML document itself — structure, resource
-identity, formats, assets, source media, and delivery — for the Bladeworks
-renderer (`bladeworks render`). Timeline placement belongs in
-[TIMELINE.md](TIMELINE.md); geometry and compositing in [GEOMETRY.md](GEOMETRY.md).
+This page owns the FCPXML document Bladeworks renders: structure, resource
+identity, formats, assets, source media, and delivery (`fcpxml render`).
+Timeline placement belongs in [TIMELINE.md](TIMELINE.md); geometry and
+compositing in [GEOMETRY.md](GEOMETRY.md).
 
-Bladeworks renders a subset of Final Cut's FCPXML, and the document scaffold
-authors almost exactly as it does natively — so this page teaches the same
-structure and expressions. A few base-FCPXML constructs are **not part of
-Bladeworks**; they are called out inline where they come up and collected in
-[What Bladeworks Does Not Render](#what-bladeworks-does-not-render), each with the
-supported way to get the same result. Two document-wide requirements govern every
-format the renderer touches: the project colour space must be **Rec.709 SDR**, and
-formats must use **square pixels**.
+Bladeworks renders a subset of Final Cut's FCPXML. The document scaffold is the
+native one. Constructs that are not part of Bladeworks are named inline and
+collected in [What Bladeworks Does Not Render](#what-bladeworks-does-not-render),
+each with the supported substitute. Two document-wide constraints apply to every
+format the renderer touches: the project colour space is Rec.709 SDR, and pixels
+are square.
 
 Anchoring (backend): source decode `tensor/decode.py`; the structural construct
 gate `tensor/support.py`; effect/title/transition matching `core/capabilities.py`;
@@ -34,7 +32,7 @@ Resource declarations precede the body so later `ref` attributes can resolve the
 Bladeworks renders **one** `<project><sequence>`, which you select by name or UID:
 
 ```bash
-bladeworks render <doc>.fcpxml --project NAME_OR_UID
+fcpxml render <doc>.fcpxml --project NAME_OR_UID
 ```
 
 Pass either a plain `.fcpxml` file or a `.fcpxmld` bundle directory. For a
@@ -318,11 +316,12 @@ An `<effect>` gives a reusable title, filter, or transition identity:
         uid=".../Basic Title.localized/Basic Title.moti"/>
 ```
 
-An `<effect>` is matched by `uid` (exact, then `uid_glob`) and, only for a UID-less
-resource, by an explicit registry `alias` — it is never guessed from display text
-(`core/capabilities.py::match`). A known UID proves identity only, not the validity
-of arbitrary `<param>` keys; whether a matched effect/title/transition renders is
-covered in [EFFECTS_AND_TRANSITIONS.md](EFFECTS_AND_TRANSITIONS.md) and
+Bladeworks matches an `<effect>` by `uid` (exact, then `uid_glob`) and, only for
+a UID-less resource, by an explicit registry `alias`. Display text is never used
+as identity (`core/capabilities.py::match`). A known UID proves identity only; it
+does not validate arbitrary `<param>` keys. Whether a matched effect, title, or
+transition renders is specified in
+[EFFECTS_AND_TRANSITIONS.md](EFFECTS_AND_TRANSITIONS.md) and
 [INVENTORY.md](INVENTORY.md).
 
 A supported `<title>` is laid out from its `<text>` runs by Bladeworks' runtime
@@ -387,7 +386,7 @@ supported alternative instead.
   substitution.
 - Forgetting that `--alpha` requires a `.mov` container.
 - Pointing `media-rep/@src` at a missing or unreadable file.
-- Treating a `<title>` as text Bladeworks will lay out — it composites a raster you
-  supply.
+- Baking title text into a PNG and placing the PNG as a still instead of
+  authoring `<title>` / `<caption>` XML.
 - Using one format for unrelated source and sequence contexts, or reordering
   children for readability without re-validating the DTD.

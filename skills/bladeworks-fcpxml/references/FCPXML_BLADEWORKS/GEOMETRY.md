@@ -2,7 +2,7 @@
 
 This page is how to author FCPXML geometry — coordinate systems, spatial
 adjustments, animation, nesting, and compositing — for the Bladeworks renderer
-(`bladeworks render`). Timing is in [TIMELINE.md](TIMELINE.md).
+(`fcpxml render`). Timing is in [TIMELINE.md](TIMELINE.md).
 
 Bladeworks renders a subset of Final Cut's FCPXML. Almost all geometry authors
 exactly as it does natively, so this page teaches the same expressions the native

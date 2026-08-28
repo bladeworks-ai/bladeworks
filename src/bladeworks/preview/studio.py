@@ -3,7 +3,7 @@
 Architecture map
 ================
 
-    ``bladeworks studio`` only
+    ``fcpxml studio`` only
         -> resolve committed frontend assets with ``importlib.resources``
         -> mount them after every API and health route
         -> add browser-isolation and no-cache response headers
